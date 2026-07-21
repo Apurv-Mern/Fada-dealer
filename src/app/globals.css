@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+:root {
+  /* Surfaces */
+  --background: #f3f5f8;
+  --foreground: #1a2332;
+  --color-surface: #ffffff;
+  --color-muted: #f1f4f8;
+  --color-sidebar: #f7f8fa;
+
+  /* Text */
+  --color-text: #1a2332;
+  --color-text-muted: #6b7a90;
+  --color-heading: #1e3a5f;
+
+  /* Brand — orange CTAs / active nav (from Figma) */
+  --color-primary: #e85d04;
+  --color-primary-hover: #d45203;
+  --color-primary-fg: #ffffff;
+  --color-primary-soft: #fff1e8;
+  --color-brand: #1e3a5f;
+
+  --color-secondary: #ffffff;
+  --color-secondary-fg: #1a2332;
+  --color-secondary-hover: #f1f4f8;
+
+  /* Borders / focus */
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-ring: #e85d04;
+
+  /* Status */
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-success: #16a34a;
+  --color-success-soft: #dcfce7;
+  --color-warning: #ea580c;
+  --color-warning-soft: #ffedd5;
+  --color-info: #2563eb;
+  --color-info-soft: #dbeafe;
+  --color-purple: #7c3aed;
+  --color-purple-soft: #ede9fe;
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Shadow */
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
