@@ -1,9 +1,9 @@
-import { AppShell } from "@/components/layout/app-shell";
+import { PortalShell } from "@/features/auth/portal-shell";
 
 export default function PortalLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AppShell>{children}</AppShell>;
+  return <PortalShell>{children}</PortalShell>;
 }
