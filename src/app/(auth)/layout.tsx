@@ -1,4 +1,5 @@
 import { AuthBrandPanel } from "@/features/auth/components/auth-brand-panel";
+import { AuthGate } from "@/features/auth/auth-gate";
 
 export default function AuthLayout({
   children,
@@ -6,10 +7,10 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid min-h-screen min-h-dvh lg:grid-cols-2">
       <AuthBrandPanel />
-      <div className="flex items-center justify-center bg-[var(--background)] px-6 py-12">
-        {children}
+      <div className="flex items-center justify-center overflow-x-hidden bg-[var(--background)] px-4 py-12 sm:px-6">
+        <AuthGate>{children}</AuthGate>
       </div>
     </div>
   );

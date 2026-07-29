@@ -3,86 +3,158 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Mail, Phone, User } from "lucide-react";
+import { Building2, Hash, Mail, Phone } from "lucide-react";
 
-import {
-  Button,
-  Checkbox,
-  Input,
-  PasswordInput,
-  Select,
-} from "@/components/ui";
+import { Button, Input, PasswordInput, toast } from "@/components/ui";
 import { AuthCard } from "@/features/auth/components/auth-card";
+import {
+  dealerRegister,
+  dealerVerifyRegistrationOtp,
+  toAuthErrorMessage,
+} from "@/features/auth/client-auth";
+import { otpSchema, registerSchema } from "@/features/auth/schemas";
 import { routes } from "@/config/navigation";
 
-type FormState = {
-  dealershipName: string;
-  oem: string;
-  membershipCode: string;
-  contactName: string;
+type RegisterFormState = {
+  name: string;
+  dealerCode: string;
   email: string;
-  phone: string;
   password: string;
-  confirmPassword: string;
-  acceptTerms: boolean;
+  phone: string;
 };
 
-const initialState: FormState = {
-  dealershipName: "",
-  oem: "",
-  membershipCode: "",
-  contactName: "",
+type OtpFormState = {
+  otp: string;
+};
+
+const initialRegister: RegisterFormState = {
+  name: "",
+  dealerCode: "",
   email: "",
-  phone: "",
   password: "",
-  confirmPassword: "",
-  acceptTerms: false,
+  phone: "",
 };
 
 export function RegisterForm() {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(initialState);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>(
-    {},
-  );
+  const [step, setStep] = useState<"details" | "otp">("details");
+  const [form, setForm] = useState<RegisterFormState>(initialRegister);
+  const [otpForm, setOtpForm] = useState<OtpFormState>({ otp: "" });
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof RegisterFormState | "otp", string>>
+  >({});
   const [isLoading, setIsLoading] = useState(false);
 
-  function update<K extends keyof FormState>(key: K, value: FormState[K]) {
+  function update<K extends keyof RegisterFormState>(
+    key: K,
+    value: RegisterFormState[K],
+  ) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
-    const next: typeof errors = {};
-    if (!form.dealershipName.trim())
-      next.dealershipName = "Dealership name is required";
-    if (!form.contactName.trim())
-      next.contactName = "Authorized user name is required";
-    if (!form.email.includes("@")) next.email = "Enter a valid email address";
-    if (form.phone.replace(/\D/g, "").length < 10)
-      next.phone = "Enter a valid mobile number";
-    if (form.password.length < 6)
-      next.password = "Password must be at least 6 characters";
-    if (form.confirmPassword !== form.password)
-      next.confirmPassword = "Passwords do not match";
-    if (!form.acceptTerms)
-      next.acceptTerms = "You must accept the terms to continue";
+    const parsed = registerSchema.safeParse(form);
 
-    setErrors(next);
-    if (Object.keys(next).length > 0) return;
-
+    if (!parsed.success) {
+      const next: typeof errors = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0];
+        if (typeof key === "string") {
+          next[key as keyof RegisterFormState] = issue.message;
+        }
+      }
+      setErrors(next);
+      return;
+    }
+    setErrors({});
     setIsLoading(true);
-    // Placeholder: submit pending dealer registration to API later.
-    setTimeout(() => {
+
+    try {
+      const message = await dealerRegister(parsed.data);
+      toast.success(message);
+      setStep("otp");
+    } catch (err) {
+      toast.error(toAuthErrorMessage(err, "Registration failed"));
+    } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    const parsed = otpSchema.safeParse({
+      email: form.email,
+      otp: otpForm.otp,
+    });
+
+    if (!parsed.success) {
+      const next: typeof errors = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0];
+        if (key === "otp" || key === "email") {
+          next[key] = issue.message;
+        }
+      }
+      setErrors(next);
+      return;
+    }
+    setErrors({});
+    setIsLoading(true);
+
+    try {
+      const message = await dealerVerifyRegistrationOtp(parsed.data);
+      toast.success(message);
       router.push(routes.login);
-    }, 600);
+    } catch (err) {
+      toast.error(toAuthErrorMessage(err, "OTP verification failed"));
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  if (step === "otp") {
+    return (
+      <AuthCard
+        title="Verify your email"
+        description={`Enter the OTP sent to ${form.email}`}
+        footer={
+          <button
+            type="button"
+            className="font-semibold text-[var(--color-primary)] hover:underline"
+            onClick={() => {
+              setStep("details");
+              setOtpForm({ otp: "" });
+              setErrors({});
+            }}
+          >
+            Back to registration
+          </button>
+        }
+      >
+        <form onSubmit={handleVerifyOtp} className="space-y-4" noValidate>
+          <Input
+            label="OTP"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="Enter OTP"
+            value={otpForm.otp}
+            onChange={(e) => setOtpForm({ otp: e.target.value })}
+            error={errors.otp}
+            required
+          />
+          <Button type="submit" fullWidth isLoading={isLoading}>
+            Verify OTP
+          </Button>
+        </form>
+      </AuthCard>
+    );
   }
 
   return (
     <AuthCard
       title="Register your dealership"
-      description="Submit your details for FADA approval and activation."
+      description="We will send an OTP to verify your email."
       footer={
         <>
           Already have an account?{" "}
@@ -95,112 +167,55 @@ export function RegisterForm() {
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form onSubmit={handleRegister} className="space-y-4" noValidate>
         <Input
           label="Dealership name"
           placeholder="e.g. Sharma Motors Pvt Ltd"
           leftAddon={<Building2 />}
-          value={form.dealershipName}
-          onChange={(e) => update("dealershipName", e.target.value)}
-          error={errors.dealershipName}
+          value={form.name}
+          onChange={(e) => update("name", e.target.value)}
+          error={errors.name}
           required
         />
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Select
-            aria-label="OEM"
-            placeholder="Select OEM (optional)"
-            options={[
-              { label: "Maruti Suzuki", value: "maruti" },
-              { label: "Hyundai", value: "hyundai" },
-              { label: "Tata Motors", value: "tata" },
-              { label: "Mahindra", value: "mahindra" },
-              { label: "BYD", value: "byd" },
-            ]}
-            value={form.oem}
-            onChange={(value) => update("oem", value)}
-            className="w-full"
-          />
-          <Input
-            placeholder="FADA membership code (optional)"
-            aria-label="FADA membership code"
-            value={form.membershipCode}
-            onChange={(e) => update("membershipCode", e.target.value)}
-          />
-        </div>
-
         <Input
-          label="Authorized user name"
-          placeholder="Full name"
-          leftAddon={<User />}
-          value={form.contactName}
-          onChange={(e) => update("contactName", e.target.value)}
-          error={errors.contactName}
+          label="Dealer code"
+          placeholder="Your dealer / membership code"
+          leftAddon={<Hash />}
+          value={form.dealerCode}
+          onChange={(e) => update("dealerCode", e.target.value)}
+          error={errors.dealerCode}
           required
         />
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Email address"
-            type="email"
-            placeholder="dealer@example.com"
-            leftAddon={<Mail />}
-            value={form.email}
-            onChange={(e) => update("email", e.target.value)}
-            error={errors.email}
-            required
-          />
-          <Input
-            label="Mobile number"
-            type="tel"
-            placeholder="10-digit mobile"
-            leftAddon={<Phone />}
-            value={form.phone}
-            onChange={(e) => update("phone", e.target.value)}
-            error={errors.phone}
-            required
-          />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <PasswordInput
-            label="Password"
-            placeholder="Create password"
-            value={form.password}
-            onChange={(e) => update("password", e.target.value)}
-            error={errors.password}
-            required
-          />
-          <PasswordInput
-            label="Confirm password"
-            placeholder="Re-enter password"
-            value={form.confirmPassword}
-            onChange={(e) => update("confirmPassword", e.target.value)}
-            error={errors.confirmPassword}
-            required
-          />
-        </div>
-
-        <Checkbox
-          label={
-            <>
-              I accept the{" "}
-              <Link href="#" className="text-[var(--color-primary)] hover:underline">
-                Terms &amp; Conditions
-              </Link>{" "}
-              and{" "}
-              <Link href="#" className="text-[var(--color-primary)] hover:underline">
-                Privacy Policy
-              </Link>
-            </>
-          }
-          checked={form.acceptTerms}
-          onChange={(e) => update("acceptTerms", e.target.checked)}
-          error={errors.acceptTerms}
+        <Input
+          label="Email address"
+          type="email"
+          placeholder="dealer@example.com"
+          leftAddon={<Mail />}
+          value={form.email}
+          onChange={(e) => update("email", e.target.value)}
+          error={errors.email}
+          required
         />
-
+        <PasswordInput
+          label="Password"
+          placeholder="Create a password"
+          value={form.password}
+          onChange={(e) => update("password", e.target.value)}
+          error={errors.password}
+          required
+        />
+        <Input
+          label="Mobile number"
+          type="tel"
+          placeholder="10-digit mobile"
+          leftAddon={<Phone />}
+          value={form.phone}
+          onChange={(e) => update("phone", e.target.value)}
+          error={errors.phone}
+          required
+        />
         <Button type="submit" fullWidth isLoading={isLoading}>
-          Submit registration
+          Send OTP
         </Button>
       </form>
     </AuthCard>
