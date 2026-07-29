@@ -1,21 +1,43 @@
-import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent } from "@/components/ui";
+"use client";
+
+import { useCallback, useSyncExternalStore } from "react";
+
+import { SectionError } from "@/components/layout/section-error";
+import { getDashboardSummary } from "@/features/dashboard/api";
+import { DashboardSkeleton } from "@/features/dashboard/dashboard-skeleton";
+import { DashboardView } from "@/features/dashboard/dashboard-view";
+import {
+  getProfile,
+  subscribeAuthStore,
+} from "@/features/auth/token-store";
+import { useAsyncResource } from "@/lib/hooks/use-async-resource";
 
 export default function DashboardPage() {
-  return (
-    <div>
-      <PageHeader
-        title="Dashboard"
-        description="Overview of dealership operations and pending actions."
-      />
-      <Card>
-        <CardContent className="py-10 text-center text-sm text-[var(--color-text-muted)]">
-          Dashboard widgets will be connected in a later milestone. Use{" "}
-          <strong className="text-[var(--color-text)]">Branches</strong> or{" "}
-          <strong className="text-[var(--color-text)]">Employees</strong> in the
-          sidebar to review the UI matching Figma.
-        </CardContent>
-      </Card>
-    </div>
+  const profile = useSyncExternalStore(
+    subscribeAuthStore,
+    getProfile,
+    () => null,
   );
+  const userName = profile?.name?.trim() || "Dealer";
+
+  const loader = useCallback(() => getDashboardSummary(), []);
+  const { data, error, loading, retry } = useAsyncResource({
+    key: "dashboard-summary",
+    loader,
+  });
+
+  if (loading && !data) {
+    return <DashboardSkeleton />;
+  }
+
+  if (error || !data) {
+    return (
+      <SectionError
+        description={error ?? "Couldn't load dashboard."}
+        onRetry={retry}
+      />
+    );
+  }
+
+  return <DashboardView summary={data} userName={userName} />;
 }
