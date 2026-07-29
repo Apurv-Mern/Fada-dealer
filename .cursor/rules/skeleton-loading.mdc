@@ -1,0 +1,15 @@
+---
+description: Loading states must use Skeleton (not page spinners)
+alwaysApply: true
+---
+
+# Skeleton-first loading
+
+When building or updating pages and components in this repo:
+
+- **Page / section / data loading** → use `Skeleton`, `PageSkeleton`, or a feature skeleton that mirrors the real layout.
+- New App Router routes with async data must include `loading.tsx` (or a Suspense fallback) that renders Skeleton UI — never a centered spinner or “Loading…” text alone.
+- Client refetch (filters, search, pagination) → Skeleton the loading region (table body, cards), not a blank area.
+- **Spinners are only for micro-actions** — e.g. `Button isLoading` on form submit.
+- Prefer composing from `@/components/ui/skeleton` and `@/components/layout/page-skeleton`.
+- Do not invent alternate full-page loaders (Lottie, overlays) unless product explicitly asks.

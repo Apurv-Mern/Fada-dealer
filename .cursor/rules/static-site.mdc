@@ -1,0 +1,33 @@
+---
+description: Dealer portal is a static Next.js export — no SSR, no Route Handlers, client-only features
+alwaysApply: true
+---
+
+# Static site (no SSR)
+
+This app is a **static Next.js export** (`output: "export"`). Build output is `build/` (copied from `out/`), deployed to Nginx at `/var/www/apps/dealer/current/build` like a CRA app. There is **no** Node server, PM2, or Next middleware/`proxy` in production.
+
+## Do not add
+
+- `src/app/api/**` Route Handlers
+- `middleware.ts` / `proxy.ts` for auth gating
+- Server Components that call `cookies()`, `headers()`, or `redirect()` for auth
+- `next/headers`, server-only session cookies, or BFF-only auth flows
+- Features that require SSR, ISR, or `dynamic = "force-dynamic"`
+
+## Do instead (best practices)
+
+- **Pages / layouts:** client data load (`"use client"`), fetch on mount or via feature hooks; use **Skeleton** while loading.
+- **Auth / APIs:** browser → `getApiBaseUrl()` via `apiFetch`. With `NEXT_PUBLIC_USE_PROXY=true`, base is `/api` (Nginx in prod; `next.dev` rewrites with export off in development). Otherwise `NEXT_PUBLIC_API_URL`. Tokens in `sessionStorage`. Gate with `PortalShell` / `AuthGate`.
+- **Domain APIs:** `src/features/<domain>/api.ts` + `isMockMode()`; on failure show `SectionError` in main (do not soft-empty). Authenticated `401` → logout. UI never imports `mocks/` directly.
+- **Feedback UI:** actions → `toast` (themed Sonner); section crashes → `(portal)/error.tsx` / `SectionError`; missing routes → `not-found.tsx`; empty lists → `EmptyState`.
+- **Env:** `NEXT_PUBLIC_*` is build-time only — rebuild after env changes.
+- **Deploy:** upload `build/` only; Nginx `try_files` + `/api/` proxy when using proxy mode. See `deploy/DEPLOY.md` and `.cursor/rules/api-proxy.mdc`.
+
+## Config reminders
+
+- Keep `images.unoptimized: true` and `trailingSlash: true` for static hosting.
+- Keep `skipTrailingSlashRedirect: true` so `/api/*` is not redirected to a trailing slash (breaks Node).
+- `output: "export"` for production builds only — not in `next dev` (rewrites need a non-export config).
+- Prefer client `useSearchParams` over server `searchParams` on pages.
+- Do not test proxy with `npm start` (`serve` has no `/api` forwarder).

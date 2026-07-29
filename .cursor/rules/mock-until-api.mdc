@@ -1,0 +1,22 @@
+---
+description: Keep feature data on mocks until Node API is ready; never import mocks from UI
+alwaysApply: true
+---
+
+# Mock-first until Node API
+
+The dealer portal’s real backend is a **separate Node.js** service. The portal itself is a **static** site (browser → API via `apiFetch`).
+
+Until the team explicitly wires domain APIs:
+
+1. Keep `NEXT_PUBLIC_USE_MOCKS=true` (or unset — `isMockMode()` defaults to mocks).
+2. Domain reads/writes go through `src/features/<name>/api.ts`. In mock mode, implement with `mocks/`; never import mocks from UI.
+3. Do not invent real HTTP for employees, branches, etc. while mocks are on. When mocks are off, call through `apiFetch` / `getApiBaseUrl()` (proxy or direct — see `.cursor/rules/api-proxy.mdc`). **Do not soft-empty failed HTTP** into fake success data — pages show `SectionError` in main with Retry.
+4. Auth is client → Node `/dealer/auth/*` via `apiFetch` (`client-auth.ts` / `token-store.ts`); there are no Next `/api/auth/*` handlers. The `/api` prefix is only the **proxy base**, not Route Handlers.
+5. When API is ready: set `NEXT_PUBLIC_USE_MOCKS=false`, set `NEXT_PUBLIC_API_URL` (and `NEXT_PUBLIC_USE_PROXY` as needed), **rebuild**, then fill the non-mock branches in each `api.ts` only.
+
+## Shell-stable errors + session expiry
+
+- Portal chrome (sidebar + header) only after **successful login**; auth routes have no shell.
+- Domain failures (non-401) → `SectionError` in `<main>` with Retry. Never put load errors in `PortalShell` / sidebar / header.
+- Authenticated `401` → `forceLocalLogout` (clear session + redirect to login). Do not leave a dead logged-in shell.

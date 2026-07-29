@@ -1,0 +1,31 @@
+---
+description: Proxy vs direct API — use getApiBaseUrl/apiFetch; never hardcode API host
+alwaysApply: true
+---
+
+# API proxy vs direct
+
+Toggle with **`NEXT_PUBLIC_USE_PROXY`** (build-time; rebuild / restart after change).
+
+| Value | Browser base (`getApiBaseUrl`) | Forwarding |
+|-------|--------------------------------|------------|
+| `true` | `/api` (same origin, no CORS) | Nginx `location /api/` in prod; `next.config` rewrites in `next dev` |
+| `false` (default) | `NEXT_PUBLIC_API_URL` | none — Node must allow CORS |
+
+Always keep **`NEXT_PUBLIC_API_URL`** set (direct target or rewrite/Nginx upstream).
+
+## Dev vs production
+
+- **`next build`:** `output: "export"` — rewrites are **not** in the static files; Nginx must proxy `/api/`.
+- **`next dev`:** `output: "export"` is **disabled** so rewrites work. `skipTrailingSlashRedirect` avoids `/api/...` → `/api/.../` (which 404s on Node).
+- Do **not** test proxy with `npm start` (`serve`) — it has no API forwarder.
+
+## Rules for every new API / feature
+
+1. Never hardcode `https://api.fadaid.com` (or any API host) in components or features.
+2. All HTTP goes through `apiFetch` / `getApiBaseUrl()` in `src/features/<domain>/api.ts`. Auth uses `client-auth.ts` (already on `apiFetch`).
+3. Paths are **Node paths only** (`/dealer/...`, `/branches/...`). Never prefix `/api` in feature code — proxy mode adds it via the base URL.
+4. UI never chooses proxy vs direct; only env + `getApiBaseUrl()`.
+5. Do **not** add Next `app/api` Route Handlers to proxy — keep static export for production builds; use Nginx + `next.config` rewrites in development.
+6. Use `isProxyMode()` only for diagnostics/docs, not for branching fetch URLs in UI.
+7. After changing `NEXT_PUBLIC_*` or `next.config`, restart `next dev` / rebuild.

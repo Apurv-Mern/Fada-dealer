@@ -1,0 +1,23 @@
+---
+description: Mobile-first responsive conventions for the static dealer portal
+alwaysApply: true
+---
+
+# Responsiveness
+
+Use Tailwind defaults only (`sm` 640 / `md` 768 / `lg` 1024 / `xl` 1280). Mobile-first.
+
+| Concern | Habit |
+|---------|--------|
+| Sidebar vs drawer | `lg` — desktop sidebar; sheet below |
+| Table vs cards | `md` — card list below; table from `md` up |
+| Stat / chart grids | `sm` → `xl` |
+| Dense toolbars | stack below `sm` / `md` |
+
+## Practices
+
+- Touch targets ~40px (`h-10`); don’t rely on hover-only for critical actions.
+- Prefer `min-w-0` / `max-w-full` over fixed widths that overflow the viewport.
+- Data tables: horizontal scroll **or** mobile cards (prefer cards for primary lists).
+- Shell: `h-dvh` (with `h-screen` fallback); main column `min-w-0`.
+- Dialogs: `w-[calc(100%-2rem)]` + `max-w-*` so mobile keeps side margin.

@@ -1,37 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FADA Dealer Portal
 
-## Getting Started
+Static Next.js export for the FADA dealer admin portal. Nginx serves `build/`; the browser talks to a separate Node API via `apiFetch` (direct or same-origin `/api` proxy).
 
-First, run the development server:
+## Quick start
 
 ```bash
+cp .env.example .env.local
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Dev server (rewrites enabled when `NEXT_PUBLIC_USE_PROXY=true`) |
+| `npm run build` | Static export → `out/` copied to `build/` |
+| `npm start` | Preview `build/` on port **3000** (no `/api` proxy) |
+| `npm run lint` | ESLint |
+| `npm test` | Vitest unit tests |
 
-## Learn More
+## Environment
 
-To learn more about Next.js, take a look at the following resources:
+See [`.env.example`](.env.example).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **`NEXT_PUBLIC_USE_MOCKS`** — domain features (branches, employees, …). Default mocks on.
+- **Auth** — uses the Node API when proxy is on or `NEXT_PUBLIC_API_URL` is set (`isRealDealerAuthEnabled`), even if domain mocks stay on.
+- Rebuild / restart after changing any `NEXT_PUBLIC_*` value.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# Fada-dealer
+- Client-only portal (`output: "export"` in production builds)
+- Feature modules under `src/features/<domain>/` with `api.ts` + `mocks/` (UI never imports mocks)
+- Auth tokens in `sessionStorage`; authenticated `401` clears session and redirects to login
+- Deploy: upload `build/` only — see [`deploy/DEPLOY.md`](deploy/DEPLOY.md)
