@@ -64,7 +64,8 @@ export function DonutChart({
   const arcs = slices.reduce<
     Array<DonutSlice & { start: number; end: number }>
   >((acc, slice) => {
-    const start = acc.length === 0 ? 0 : acc[acc.length - 1].end;
+    const prev = acc[acc.length - 1];
+    const start = prev?.end ?? 0;
     const end = start + (slice.value / total) * 360;
     return [...acc, { ...slice, start, end }];
   }, []);

@@ -8,22 +8,27 @@ const toneStyles = {
   orange: {
     iconBg: "bg-[var(--color-primary-soft)]",
     iconColor: "text-[var(--color-primary)]",
+    valueColor: "text-[var(--color-primary)]",
   },
   green: {
     iconBg: "bg-[var(--color-success-soft)]",
     iconColor: "text-[var(--color-success)]",
+    valueColor: "text-[var(--color-success)]",
   },
   blue: {
     iconBg: "bg-[var(--color-info-soft)]",
     iconColor: "text-[var(--color-info)]",
+    valueColor: "text-[var(--color-info)]",
   },
   purple: {
     iconBg: "bg-[var(--color-purple-soft)]",
     iconColor: "text-[var(--color-purple)]",
+    valueColor: "text-[var(--color-purple)]",
   },
   red: {
     iconBg: "bg-red-100",
     iconColor: "text-[var(--color-danger)]",
+    valueColor: "text-[var(--color-danger)]",
   },
 } as const;
 
@@ -33,6 +38,8 @@ export type StatCardProps = {
   hint?: React.ReactNode;
   icon: LucideIcon;
   tone?: keyof typeof toneStyles;
+  /** When true, value uses the tone color instead of heading. */
+  coloredValue?: boolean;
   className?: string;
 };
 
@@ -42,6 +49,7 @@ export function StatCard({
   hint,
   icon: Icon,
   tone = "orange",
+  coloredValue = false,
   className,
 }: StatCardProps) {
   const styles = toneStyles[tone];
@@ -62,7 +70,12 @@ export function StatCard({
           <p className="text-xs font-medium text-[var(--color-text-muted)]">
             {label}
           </p>
-          <p className="mt-1 text-2xl font-semibold tracking-tight text-[var(--color-heading)]">
+          <p
+            className={cn(
+              "mt-1 text-2xl font-semibold tracking-tight",
+              coloredValue ? styles.valueColor : "text-[var(--color-heading)]",
+            )}
+          >
             {value}
           </p>
           {hint ? (

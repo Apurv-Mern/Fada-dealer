@@ -5,7 +5,9 @@ import { cn } from "@/lib/utils/cn";
 export type AvatarProps = {
   name: string;
   src?: string | null;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
+  /** When no `src`: show initials (default) or an empty muted circle. */
+  fallback?: "initials" | "blank";
   className?: string;
 };
 
@@ -13,6 +15,7 @@ const sizeMap = {
   sm: "size-8 text-xs",
   md: "size-9 text-sm",
   lg: "size-11 text-base",
+  xl: "size-24 text-2xl",
 } as const;
 
 function initials(name: string) {
@@ -24,7 +27,13 @@ function initials(name: string) {
     .join("");
 }
 
-export function Avatar({ name, src, size = "md", className }: AvatarProps) {
+export function Avatar({
+  name,
+  src,
+  size = "md",
+  fallback = "initials",
+  className,
+}: AvatarProps) {
   if (src) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -33,6 +42,19 @@ export function Avatar({ name, src, size = "md", className }: AvatarProps) {
         alt={name}
         className={cn(
           "shrink-0 rounded-full object-cover",
+          sizeMap[size],
+          className,
+        )}
+      />
+    );
+  }
+
+  if (fallback === "blank") {
+    return (
+      <span
+        aria-label={`${name || "Profile"} photo placeholder`}
+        className={cn(
+          "inline-flex shrink-0 rounded-full border border-[var(--color-border)] bg-[var(--color-muted)]",
           sizeMap[size],
           className,
         )}
