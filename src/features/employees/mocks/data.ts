@@ -1,23 +1,40 @@
-export type EmployeeRow = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  fadaId: string;
-  branch: string;
-  designation: string;
-  status: "Active" | "On Notice" | "Inactive";
-  fadaScore: number;
-};
+import type {
+  Employee,
+  EmployeeFilterOptions,
+  EmployeeStats,
+  FilterOption,
+} from "@/features/employees/types";
 
-export const employeeStats = {
+export const employeeStats: EmployeeStats = {
   total: 248,
   active: 231,
   newJoins: 18,
   exited: 6,
 };
 
-export const employees: EmployeeRow[] = [
+export const branchFilterOptions: FilterOption[] = [
+  { label: "Andheri West", value: "andheri" },
+  { label: "Pune Service", value: "pune" },
+  { label: "Thane Sales", value: "thane" },
+  { label: "Nashik", value: "nashik" },
+];
+
+export const designationFilterOptions: FilterOption[] = [
+  { label: "Sales Consultant", value: "sales" },
+  { label: "Service Advisor", value: "service" },
+  { label: "Team Lead", value: "lead" },
+  { label: "CRM Executive", value: "crm" },
+  { label: "Branch Manager", value: "manager" },
+  { label: "Technician", value: "tech" },
+  { label: "HR Coordinator", value: "hr" },
+];
+
+export const employeeFilterOptions: EmployeeFilterOptions = {
+  branches: branchFilterOptions,
+  designations: designationFilterOptions,
+};
+
+export const employees: Employee[] = [
   {
     id: "1",
     name: "Amit Verma",
@@ -25,7 +42,9 @@ export const employees: EmployeeRow[] = [
     phone: "+91 98765 43210",
     fadaId: "MH/2024/AV/1042",
     branch: "Andheri West",
+    branchId: "andheri",
     designation: "Sales Consultant",
+    designationId: "sales",
     status: "Active",
     fadaScore: 880,
   },
@@ -36,7 +55,9 @@ export const employees: EmployeeRow[] = [
     phone: "+91 98200 11223",
     fadaId: "MH/2023/PN/0891",
     branch: "Pune Service",
+    branchId: "pune",
     designation: "Service Advisor",
+    designationId: "service",
     status: "Active",
     fadaScore: 910,
   },
@@ -47,7 +68,9 @@ export const employees: EmployeeRow[] = [
     phone: "+91 98111 22334",
     fadaId: "MH/2022/RM/0550",
     branch: "Thane Sales",
+    branchId: "thane",
     designation: "Team Lead",
+    designationId: "lead",
     status: "On Notice",
     fadaScore: 760,
   },
@@ -58,7 +81,9 @@ export const employees: EmployeeRow[] = [
     phone: "+91 97654 88990",
     fadaId: "MH/2024/SP/1201",
     branch: "Nashik",
+    branchId: "nashik",
     designation: "CRM Executive",
+    designationId: "crm",
     status: "Active",
     fadaScore: 845,
   },
@@ -69,7 +94,9 @@ export const employees: EmployeeRow[] = [
     phone: "+91 99001 44556",
     fadaId: "MH/2021/VJ/0312",
     branch: "Andheri West",
+    branchId: "andheri",
     designation: "Branch Manager",
+    designationId: "manager",
     status: "Active",
     fadaScore: 940,
   },
@@ -80,7 +107,9 @@ export const employees: EmployeeRow[] = [
     phone: "+91 98330 77889",
     fadaId: "MH/2023/NK/0777",
     branch: "Pune Service",
+    branchId: "pune",
     designation: "Technician",
+    designationId: "tech",
     status: "Inactive",
     fadaScore: 620,
   },
@@ -91,7 +120,9 @@ export const employees: EmployeeRow[] = [
     phone: "+91 97000 33445",
     fadaId: "MH/2024/AD/1330",
     branch: "Thane Sales",
+    branchId: "thane",
     designation: "Sales Consultant",
+    designationId: "sales",
     status: "Active",
     fadaScore: 800,
   },
@@ -102,7 +133,9 @@ export const employees: EmployeeRow[] = [
     phone: "+91 98989 22110",
     fadaId: "MH/2022/KS/0488",
     branch: "Andheri West",
+    branchId: "andheri",
     designation: "HR Coordinator",
+    designationId: "hr",
     status: "On Notice",
     fadaScore: 790,
   },
