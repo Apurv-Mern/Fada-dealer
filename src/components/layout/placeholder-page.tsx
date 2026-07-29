@@ -13,7 +13,8 @@ export function PlaceholderPage({
       <PageHeader title={title} description={description} />
       <Card>
         <CardContent className="py-10 text-center text-sm text-[var(--color-text-muted)]">
-          Screen shell ready — feature UI comes next.
+          This section is not connected to an API yet. Use the sidebar to open
+          available pages — chrome stays available after you sign in.
         </CardContent>
       </Card>
     </div>

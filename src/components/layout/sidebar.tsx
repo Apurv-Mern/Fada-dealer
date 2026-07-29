@@ -7,11 +7,21 @@ import { Phone } from "lucide-react";
 import { dealerNavItems } from "@/config/navigation";
 import { cn } from "@/lib/utils/cn";
 
-export function Sidebar() {
+export type SidebarProps = {
+  className?: string;
+  onNavigate?: () => void;
+};
+
+export function Sidebar({ className, onNavigate }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-[240px] shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-sidebar)]">
+    <aside
+      className={cn(
+        "flex h-full w-[240px] shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-sidebar)]",
+        className,
+      )}
+    >
       <div className="flex h-16 items-center gap-2 border-b border-[var(--color-border)] px-5">
         <div className="flex size-8 items-center justify-center rounded-md bg-[var(--color-brand)] text-xs font-bold text-white">
           F
@@ -36,6 +46,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
                 active
