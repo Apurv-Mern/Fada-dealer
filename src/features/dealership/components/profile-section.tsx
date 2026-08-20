@@ -46,7 +46,7 @@ export function DealershipProfileSection({
             }}
           />
         ) : (
-          <DealershipProfileView profile={profile} />
+          <DealershipProfileView profile={profile} onImageUploaded={onSaved} />
         )}
       </CardContent>
     </Card>

@@ -265,9 +265,13 @@ export function mapDealerProfile(raw: unknown): DealerProfile {
       readString(record, "logoUrl") ||
       readString(record, "avatarUrl") ||
       readString(record, "profileImage") ||
+      readString(record, "profilePicture") ||
+      readString(record, "fileUrl") ||
       readString(profile, "logoUrl") ||
       readString(profile, "avatarUrl") ||
-      readString(profile, "profileImage"),
+      readString(profile, "profileImage") ||
+      readString(profile, "profilePicture") ||
+      readString(profile, "fileUrl"),
   };
 }
 
@@ -360,6 +364,41 @@ function brandNamesFromIds(ids: number[]): string {
     { ...mockDealerProfile, brandIds: ids, brandsRepresented: "" },
     mockBrands,
   ).brandsRepresented;
+}
+
+/**
+ * Upload a profile image via `POST /file-upload`, then persist the URL.
+ *
+ * Persist contract:
+ * `PUT /dealer/upload-profile-picture` with `{ fileUrl: url }`.
+ */
+export async function uploadDealerProfilePicture(file: File): Promise<string> {
+  if (isMockMode()) {
+    await mockDelay();
+    const url =
+      typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+        ? URL.createObjectURL(file)
+        : `https://api.fadaid.com/uploads/mock-profile-${Date.now()}.png`;
+    mockDealerProfile.logoUrl = url;
+    return url;
+  }
+
+  const uploadedUrl = await apiUploadFile(file);
+  const body = await apiFetch<unknown>("/dealer/upload-profile-picture", {
+    method: "PUT",
+    body: { fileUrl: uploadedUrl },
+  });
+
+  const data = asRecord(unwrapApiData(body) ?? body);
+  const savedUrl =
+    readString(data, "fileUrl") ||
+    readString(data, "profilePicture") ||
+    readString(data, "logoUrl") ||
+    readString(data, "file") ||
+    readString(data, "url") ||
+    uploadedUrl;
+
+  return savedUrl;
 }
 
 export async function updateDealerProfile(

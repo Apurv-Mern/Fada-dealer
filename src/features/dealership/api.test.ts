@@ -7,6 +7,7 @@ import {
   toDealerProfileUpdateBody,
   updateDealerProfile,
   uploadBusinessDocument,
+  uploadDealerProfilePicture,
 } from "@/features/dealership/api";
 import { apiFetch, apiUploadFile, isMockMode } from "@/lib/api";
 import { ApiError } from "@/lib/api/errors";
@@ -218,6 +219,84 @@ describe("mapDealerProfile", () => {
     expect(mapDealerProfile({}).brandIds).toEqual([]);
     expect(mapDealerProfile({ brands: null }).brandsRepresented).toBe("");
     expect(mapDealerProfile({ brands: null }).brandIds).toEqual([]);
+  });
+
+  it("maps profilePicture onto logoUrl", () => {
+    expect(
+      mapDealerProfile({
+        profilePicture: "https://api.fadaid.com/uploads/pic.png",
+      }).logoUrl,
+    ).toBe("https://api.fadaid.com/uploads/pic.png");
+    expect(
+      mapDealerProfile({
+        profile: {
+          profilePicture: "https://api.fadaid.com/uploads/nested.png",
+        },
+      }).logoUrl,
+    ).toBe("https://api.fadaid.com/uploads/nested.png");
+  });
+
+  it("maps fileUrl onto logoUrl", () => {
+    expect(
+      mapDealerProfile({
+        fileUrl: "https://api.fadaid.com/uploads/from-file-url.png",
+      }).logoUrl,
+    ).toBe("https://api.fadaid.com/uploads/from-file-url.png");
+  });
+});
+
+describe("uploadDealerProfilePicture", () => {
+  afterEach(() => {
+    vi.mocked(isMockMode).mockReturnValue(true);
+    vi.mocked(apiFetch).mockReset();
+    vi.mocked(apiUploadFile).mockReset();
+  });
+
+  it("uploads the file then persists the URL on the profile-picture endpoint", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    vi.mocked(apiUploadFile).mockResolvedValue(
+      "https://api.fadaid.com/uploads/new-logo.png",
+    );
+    vi.mocked(apiFetch).mockResolvedValue({
+      success: true,
+      data: { fileUrl: "https://api.fadaid.com/uploads/new-logo.png" },
+    });
+
+    const file = new File(["img"], "logo.png", { type: "image/png" });
+    const url = await uploadDealerProfilePicture(file);
+
+    expect(apiUploadFile).toHaveBeenCalledWith(file);
+    expect(apiFetch).toHaveBeenCalledWith("/dealer/upload-profile-picture", {
+      method: "PUT",
+      body: { fileUrl: "https://api.fadaid.com/uploads/new-logo.png" },
+    });
+    expect(url).toBe("https://api.fadaid.com/uploads/new-logo.png");
+  });
+
+  it("falls back to the uploaded URL when persist response omits it", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    vi.mocked(apiUploadFile).mockResolvedValue(
+      "https://api.fadaid.com/uploads/fallback.png",
+    );
+    vi.mocked(apiFetch).mockResolvedValue({ success: true });
+
+    const file = new File(["img"], "logo.png", { type: "image/png" });
+    await expect(uploadDealerProfilePicture(file)).resolves.toBe(
+      "https://api.fadaid.com/uploads/fallback.png",
+    );
+  });
+
+  it("does not call persist when file upload fails", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    vi.mocked(apiUploadFile).mockRejectedValue(
+      new ApiError({ message: "Upload failed", status: 500 }),
+    );
+
+    const file = new File(["img"], "logo.png", { type: "image/png" });
+    await expect(uploadDealerProfilePicture(file)).rejects.toBeInstanceOf(
+      ApiError,
+    );
+    expect(apiFetch).not.toHaveBeenCalled();
   });
 });
 

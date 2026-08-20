@@ -7,7 +7,6 @@ import {
   CardTitle,
   buttonVariants,
 } from "@/components/ui";
-import { BrandsReadonlyChips } from "@/features/dealership/components/brands-readonly-chips";
 import { ProfileFieldValue } from "@/features/dealership/components/profile-field-value";
 import {
   profileGridCardClass,
@@ -61,15 +60,6 @@ export function DealershipBusinessDetailsCard({
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col">
         <div className={profileGridCardScrollClass}>
-          <Row
-            label="Brands Represented"
-            value={
-              <BrandsReadonlyChips
-                brandsRepresented={profile.brandsRepresented}
-                align="end"
-              />
-            }
-          />
           <Row
             label="Total Employees"
             value={String(profile.allEmployees ?? 0)}

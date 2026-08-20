@@ -1,8 +1,8 @@
 "use client";
 
-import { Avatar } from "@/components/ui";
 import { BrandsReadonlyChips } from "@/features/dealership/components/brands-readonly-chips";
 import { ProfileFieldValue } from "@/features/dealership/components/profile-field-value";
+import { ProfileImageUploader } from "@/features/dealership/components/profile-image-uploader";
 import {
   displayValue,
   type DealerProfile,
@@ -33,7 +33,13 @@ function formatMemberSince(value: string) {
   });
 }
 
-export function DealershipProfileView({ profile }: { profile: DealerProfile }) {
+export function DealershipProfileView({
+  profile,
+  onImageUploaded,
+}: {
+  profile: DealerProfile;
+  onImageUploaded?: () => void;
+}) {
   const addressParts = [
     displayValue(profile.address),
     displayValue(profile.city),
@@ -44,12 +50,10 @@ export function DealershipProfileView({ profile }: { profile: DealerProfile }) {
 
   return (
     <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-      <Avatar
+      <ProfileImageUploader
         name={displayValue(profile.name) || "Company"}
-        src={displayValue(profile.logoUrl) || null}
-        size="xl"
-        fallback="blank"
-        className="mx-auto sm:mx-0"
+        logoUrl={profile.logoUrl}
+        onUploaded={onImageUploaded}
       />
       <div className="min-w-0 flex-1 space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -103,7 +107,9 @@ export function DealershipProfileView({ profile }: { profile: DealerProfile }) {
           />
           <Field
             label="Brands Represented"
-            value={<BrandsReadonlyChips brandsRepresented={profile.brandsRepresented} />}
+            value={
+              <BrandsReadonlyChips brandsRepresented={profile.brandsRepresented} />
+            }
           />
           <Field
             label="Total Branches"
