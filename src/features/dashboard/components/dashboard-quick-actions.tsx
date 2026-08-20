@@ -14,7 +14,6 @@ import {
   CardHeader,
   CardTitle,
   QuickActionTile,
-  toast,
 } from "@/components/ui";
 
 export function DashboardQuickActions() {
@@ -38,11 +37,7 @@ export function DashboardQuickActions() {
             label="Bulk Upload"
             icon={CloudUpload}
             tone="purple"
-            onClick={() =>
-              toast.message(
-                "Bulk upload will be available when the API is ready.",
-              )
-            }
+            href="/employees?import=1"
           />
           <QuickActionTile
             label="Manage Outlets"

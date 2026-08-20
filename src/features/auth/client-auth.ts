@@ -34,7 +34,7 @@ function establishLocalSession(profile: SessionPayload, accessToken: string) {
   setSession({ accessToken, profile });
 }
 
-/** Persist tokens + profile in sessionStorage after a successful auth response. */
+/** Persist tokens + profile in localStorage after a successful auth response. */
 export async function completeDealerLogin(
   body: AuthTokenResponse,
   fallbackEmail: string,
@@ -53,9 +53,11 @@ export async function completeDealerLogin(
 function mockLoginSession(email: string) {
   establishLocalSession(
     {
+      id: "16",
       email,
       name: "Rajesh Sharma",
-      role: "Dealer Admin",
+      role: "Company Admin",
+      isGroupHoldingEntity: true,
     },
     "mock-access-token",
   );
@@ -123,7 +125,7 @@ export async function dealerVerifyLoginOtp(input: {
 
 export async function dealerRegister(input: {
   name: string;
-  dealerCode: string;
+  dealerCode?: string;
   email: string;
   password: string;
   phone: string;
@@ -132,9 +134,14 @@ export async function dealerRegister(input: {
     return "OTP sent (mock)";
   }
 
+  const { dealerCode, ...rest } = input;
+  const bodyPayload = dealerCode?.trim()
+    ? { ...rest, dealerCode: dealerCode.trim() }
+    : rest;
+
   const body = await apiFetch<{ message?: string }>("/dealer/auth/register", {
     method: "POST",
-    body: input,
+    body: bodyPayload,
     skipAuth: true,
   });
   return body.message ?? "OTP sent";

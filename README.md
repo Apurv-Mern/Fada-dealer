@@ -34,5 +34,5 @@ See [`.env.example`](.env.example).
 
 - Client-only portal (`output: "export"` in production builds)
 - Feature modules under `src/features/<domain>/` with `api.ts` + `mocks/` (UI never imports mocks)
-- Auth tokens in `sessionStorage`; authenticated `401` clears session and redirects to login
+- Auth tokens in `localStorage` (shared across tabs); authenticated `401` clears session and redirects to login
 - Deploy: upload `build/` only — see [`deploy/DEPLOY.md`](deploy/DEPLOY.md)

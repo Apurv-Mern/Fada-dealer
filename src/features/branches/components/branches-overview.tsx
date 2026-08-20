@@ -19,14 +19,17 @@ import {
   toast,
 } from "@/components/ui";
 import { deleteOutlet } from "@/features/branches/api";
-import type { Branch, BranchType } from "@/features/branches/types";
+import type { Branch } from "@/features/branches/types";
 import { toAuthErrorMessage } from "@/features/auth/client-auth";
 
-const typeBadge = {
-  Sales: "info",
-  Service: "purple",
-  "Sales & Service": "orange",
-} as const satisfies Record<BranchType, "info" | "purple" | "orange">;
+function typeBadgeVariant(
+  type: string,
+): "info" | "purple" | "orange" | "muted" {
+  if (type === "—") return "muted";
+  if (type === "Service") return "purple";
+  if (type === "Sales") return "info";
+  return "orange";
+}
 
 const PERIOD_HINT: Record<string, string> = {
   month: "Showing this month",
@@ -130,7 +133,7 @@ export function BranchesOverviewTable({
       className: "max-w-0 overflow-hidden",
       cell: (row) => (
         <div className="min-w-0 max-w-full overflow-hidden">
-          <Badge className="max-w-full truncate" variant={typeBadge[row.type]} title={row.type}>
+          <Badge className="max-w-full truncate" variant={typeBadgeVariant(row.type)} title={row.type}>
             {row.type}
           </Badge>
         </div>
@@ -223,7 +226,9 @@ export function BranchesOverviewTable({
                         {row.location}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <Badge variant={typeBadge[row.type]}>{row.type}</Badge>
+                        <Badge variant={typeBadgeVariant(row.type)} title={row.type}>
+                          {row.type}
+                        </Badge>
                         <Badge
                           variant={
                             row.status === "Active" ? "success" : "muted"

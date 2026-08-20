@@ -37,6 +37,13 @@ export const mockDealerProfile: DealerProfile = {
   pinCode: "411001",
   country: "India",
   gstNumber: "27AAKCS1234K1Z5",
+  natureOfBusiness: "Automobile retail and service",
+  brandsRepresented: "Maruti Suzuki, Honda",
+  brandIds: [2, 1],
+  totalShowrooms: 2,
+  totalWorkshops: 3,
+  primaryContactName: "Rajesh Sharma",
+  primaryContactPhone: "9876543210",
   logoUrl: "",
 };
 

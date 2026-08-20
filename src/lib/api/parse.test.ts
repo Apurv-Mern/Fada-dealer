@@ -53,6 +53,25 @@ describe("normalizeListPayload", () => {
     expect(branch.name).toBe("test101");
     expect(branch.status).toBe("Active");
     expect(branch.location).toContain("Wicksburg");
+    expect(branch.type).toBe("—");
+  });
+
+  it("maps outlet function ids to full master names in order", () => {
+    const lookup = new Map([
+      ["1", "Sales"],
+      ["2", "Workshop"],
+      ["3", "Service"],
+      ["4", "Sales, Service, & Spares"],
+    ]);
+    expect(
+      mapOutletToBranch({ id: 1, name: "A", functions: [1] }, lookup).type,
+    ).toBe("Sales");
+    expect(
+      mapOutletToBranch({ id: 2, name: "B", functions: [3] }, lookup).type,
+    ).toBe("Service");
+    expect(
+      mapOutletToBranch({ id: 3, name: "C", functions: [1, 4] }, lookup).type,
+    ).toBe("Sales, Sales, Service, & Spares");
   });
 });
 

@@ -5,7 +5,6 @@ import {
   GitBranch,
   Users,
   ClipboardList,
-  Briefcase,
   BarChart3,
   Megaphone,
   Settings,
@@ -19,11 +18,10 @@ export type NavItem = {
 
 export const dealerNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Dealer Profile", href: "/dealership", icon: Building2 },
+  { label: "Company Profile", href: "/dealership", icon: Building2 },
   { label: "Branches", href: "/branches", icon: GitBranch },
   { label: "Employees", href: "/employees", icon: Users },
   { label: "Employment Requests", href: "/verifications", icon: ClipboardList },
-  { label: "Employment Actions", href: "/employment-actions", icon: Briefcase },
   { label: "Reports", href: "/reports", icon: BarChart3 },
   { label: "Communications", href: "/communications", icon: Megaphone },
   { label: "Settings", href: "/settings", icon: Settings },
@@ -37,6 +35,8 @@ export const routes = {
   dealership: "/dealership",
   branches: "/branches",
   employees: "/employees",
+  employeeDetail: (id: string) =>
+    `/employees/detail/?id=${encodeURIComponent(id)}`,
   verifications: "/verifications",
   employmentActions: "/employment-actions",
   reports: "/reports",

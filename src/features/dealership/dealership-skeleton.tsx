@@ -1,8 +1,9 @@
 import { Skeleton } from "@/components/ui";
+import { profileGridCardClass } from "@/features/dealership/components/profile-grid-card";
 
 export function DealershipSkeleton() {
   return (
-    <div aria-busy aria-label="Loading dealer profile">
+    <div aria-busy aria-label="Loading company profile">
       <div className="mb-6 space-y-2">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-80 max-w-full" />
@@ -26,11 +27,11 @@ export function DealershipSkeleton() {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+      <div className="mb-6 grid gap-4 lg:grid-cols-3 lg:items-stretch">
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
-            className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
+            className={`${profileGridCardClass} rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-5`}
           >
             <Skeleton className="mb-4 h-5 w-36" />
             <Skeleton className="mb-3 h-16 w-full" />

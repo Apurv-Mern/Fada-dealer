@@ -4,6 +4,10 @@ export type SessionPayload = {
   email: string;
   name: string;
   role: string;
+  /** Dealer id from login (stringified). */
+  id?: string;
+  /** When true, portal may load group dealers for the navbar list. */
+  isGroupHoldingEntity?: boolean;
 };
 
 function readStringField(
@@ -66,6 +70,15 @@ export function extractTokensFromAuthBody(body: AuthTokenResponse): {
   return { accessToken, refreshToken };
 }
 
+/** Map API role enums to user-facing session labels. */
+export function formatSessionRole(role: string): string {
+  const normalized = role.trim().toLowerCase();
+  if (normalized === "dealer" || normalized === "dealer_admin") {
+    return "Company Admin";
+  }
+  return role.trim();
+}
+
 export function sessionFromAuthBody(
   body: AuthTokenResponse,
   fallbackEmail: string,
@@ -85,13 +98,33 @@ export function sessionFromAuthBody(
     readStringField(data, "name") ||
     (typeof user?.name === "string" && user.name) ||
     fallbackEmail.split("@")[0] ||
-    "Dealer";
+    "Company";
 
-  const role =
+  const rawRole =
     (typeof dealer?.role === "string" && dealer.role) ||
     readStringField(data, "role") ||
     (typeof user?.role === "string" && user.role) ||
-    "Dealer Admin";
+    "Company Admin";
+  const role = formatSessionRole(rawRole);
 
-  return { email, name, role };
+  const dealerRecord = dealer as Record<string, unknown> | null | undefined;
+  const idFromDealer =
+    dealer?.id != null && String(dealer.id).trim()
+      ? String(dealer.id)
+      : undefined;
+  const idFromData =
+    data?.id != null && String(data.id).trim() ? String(data.id) : undefined;
+  const id = idFromDealer || idFromData;
+
+  const isGroupHoldingEntity =
+    readBooleanField(dealerRecord, "isGroupHoldingEntity") ??
+    readBooleanField(data, "isGroupHoldingEntity");
+
+  return {
+    email,
+    name,
+    role,
+    ...(id ? { id } : {}),
+    ...(isGroupHoldingEntity !== undefined ? { isGroupHoldingEntity } : {}),
+  };
 }

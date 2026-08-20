@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { Pencil, UserMinus, Users } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowRightLeft, Eye, Pencil, Users } from "lucide-react";
 
 import {
   Avatar,
@@ -13,6 +14,7 @@ import {
   ScoreBar,
   Tooltip,
 } from "@/components/ui";
+import { routes } from "@/config/navigation";
 import type { Employee, EmployeeStatus } from "@/features/employees/types";
 
 const statusBadge = {
@@ -23,15 +25,28 @@ const statusBadge = {
 
 export function EmployeeRowActions({
   employee,
+  onView,
   onEdit,
-  onDeactivate,
+  onTransfer,
 }: {
   employee: Employee;
+  onView?: (employee: Employee) => void;
   onEdit?: (employee: Employee) => void;
-  onDeactivate?: (employee: Employee) => void;
+  onTransfer?: (employee: Employee) => void;
 }) {
+  const canTransfer = employee.status === "Active";
   return (
     <div className="flex shrink-0 justify-end gap-1">
+      <Tooltip content="View profile">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={`View ${employee.name}`}
+          onClick={() => onView?.(employee)}
+        >
+          <Eye />
+        </Button>
+      </Tooltip>
       <Tooltip content="Edit employee">
         <Button
           variant="ghost"
@@ -42,16 +57,18 @@ export function EmployeeRowActions({
           <Pencil />
         </Button>
       </Tooltip>
-      <Tooltip content="Deactivate employee">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={`Deactivate ${employee.name}`}
-          onClick={() => onDeactivate?.(employee)}
-        >
-          <UserMinus />
-        </Button>
-      </Tooltip>
+      {canTransfer ? (
+        <Tooltip content="Transfer employee">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Transfer ${employee.name}`}
+            onClick={() => onTransfer?.(employee)}
+          >
+            <ArrowRightLeft />
+          </Button>
+        </Tooltip>
+      ) : null}
     </div>
   );
 }
@@ -63,8 +80,9 @@ export function EmployeesTable({
   allVisibleSelected,
   onToggleAll,
   onToggleOne,
+  onView,
   onEdit,
-  onDeactivate,
+  onTransfer,
 }: {
   rows: Employee[];
   selected: string[];
@@ -72,9 +90,22 @@ export function EmployeesTable({
   allVisibleSelected: boolean;
   onToggleAll: () => void;
   onToggleOne: (id: string) => void;
+  onView?: (employee: Employee) => void;
   onEdit?: (employee: Employee) => void;
-  onDeactivate?: (employee: Employee) => void;
+  onTransfer?: (employee: Employee) => void;
 }) {
+  const router = useRouter();
+
+  const handleView = useCallback(
+    (employee: Employee) => {
+      if (onView) {
+        onView(employee);
+        return;
+      }
+      router.push(routes.employeeDetail(employee.id));
+    },
+    [onView, router],
+  );
   const columns = useMemo<DataTableColumn<Employee>[]>(
     () => [
       {
@@ -109,12 +140,14 @@ export function EmployeesTable({
           <div className="flex min-w-0 items-center gap-2">
             <Avatar name={row.name} size="md" className="shrink-0" />
             <div className="min-w-0">
-              <p
-                className="truncate font-semibold text-[var(--color-heading)]"
+              <button
+                type="button"
+                className="truncate text-left font-semibold text-[var(--color-heading)] hover:underline"
                 title={row.name}
+                onClick={() => handleView(row)}
               >
                 {row.name}
-              </p>
+              </button>
               <p className="truncate text-xs text-[var(--color-text-muted)]" title={row.email}>
                 {row.email}
               </p>
@@ -182,16 +215,18 @@ export function EmployeesTable({
         cell: (row) => (
           <EmployeeRowActions
             employee={row}
+            onView={handleView}
             onEdit={onEdit}
-            onDeactivate={onDeactivate}
+            onTransfer={onTransfer}
           />
         ),
       },
     ],
     [
       allVisibleSelected,
-      onDeactivate,
+      handleView,
       onEdit,
+      onTransfer,
       onToggleAll,
       onToggleOne,
       selected,

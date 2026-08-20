@@ -18,7 +18,7 @@ This app is a **static Next.js export** (`output: "export"`). Build output is `b
 ## Do instead (best practices)
 
 - **Pages / layouts:** client data load (`"use client"`), fetch on mount or via feature hooks; use **Skeleton** while loading.
-- **Auth / APIs:** browser → `getApiBaseUrl()` via `apiFetch`. With `NEXT_PUBLIC_USE_PROXY=true`, base is `/api` (Nginx in prod; `next.dev` rewrites with export off in development). Otherwise `NEXT_PUBLIC_API_URL`. Tokens in `sessionStorage`. Gate with `PortalShell` / `AuthGate`.
+- **Auth / APIs:** browser → `getApiBaseUrl()` via `apiFetch`. With `NEXT_PUBLIC_USE_PROXY=true`, base is `/api` (Nginx in prod; `next.dev` rewrites with export off in development). Otherwise `NEXT_PUBLIC_API_URL`. Tokens in `localStorage` (shared across tabs). Gate with `PortalShell` / `AuthGate`.
 - **Domain APIs:** `src/features/<domain>/api.ts` + `isMockMode()`; on failure show `SectionError` in main (do not soft-empty). Authenticated `401` → logout. UI never imports `mocks/` directly.
 - **Feedback UI:** actions → `toast` (themed Sonner); section crashes → `(portal)/error.tsx` / `SectionError`; missing routes → `not-found.tsx`; empty lists → `EmptyState`.
 - **Env:** `NEXT_PUBLIC_*` is build-time only — rebuild after env changes.

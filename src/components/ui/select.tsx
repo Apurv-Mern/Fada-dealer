@@ -15,6 +15,7 @@ export type SelectProps = {
   placeholder?: string;
   className?: string;
   id?: string;
+  disabled?: boolean;
   "aria-label"?: string;
 };
 
@@ -25,6 +26,7 @@ export function Select({
   placeholder,
   className,
   id,
+  disabled,
   "aria-label": ariaLabel,
 }: SelectProps) {
   return (
@@ -33,10 +35,12 @@ export function Select({
         id={id}
         aria-label={ariaLabel}
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange?.(e.target.value)}
         className={cn(
           "h-10 w-full appearance-none rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] pr-9 pl-3 text-sm text-[var(--color-text)]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-1",
+          "disabled:cursor-not-allowed disabled:bg-[var(--color-muted)] disabled:opacity-60",
         )}
       >
         {placeholder ? <option value="">{placeholder}</option> : null}

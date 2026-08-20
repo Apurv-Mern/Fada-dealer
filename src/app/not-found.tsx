@@ -9,7 +9,7 @@ export default function NotFound() {
       code={404}
       icon={FileQuestion}
       title="Page not found"
-      description="This page doesn’t exist or may have moved. Check the URL, or head back to the dealer portal."
+      description="This page doesn’t exist or may have moved. Check the URL, or head back to the company portal."
       primaryAction={{ label: "Back to login", href: routes.login }}
       secondaryAction={{ label: "Go to branches", href: routes.branches }}
     />

@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api/errors";
-import { getAccessToken } from "@/features/auth/token-store";
+import { unwrapApiData } from "@/lib/api/parse";
+import { getAccessToken, getActingDealerId } from "@/features/auth/token-store";
 import { forceLocalLogout } from "@/features/auth/force-logout";
 
 /** Same-origin `/api/*` → Nginx / next rewrite (avoids CORS). */
@@ -41,6 +42,8 @@ type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   /** Skip attaching Bearer from token store (e.g. login/register). */
   skipAuth?: boolean;
+  /** Skip `x-dealer-id` (e.g. group-dealers list must stay on the logged-in holding). */
+  skipDealerHeader?: boolean;
 };
 
 function extractErrorMessage(data: unknown, fallback: string): string {
@@ -64,7 +67,8 @@ export async function apiFetch<T>(
     ? path
     : `${base}${path.startsWith("/") ? path : `/${path}`}`;
 
-  const { skipAuth, body, headers: initHeaders, ...rest } = options;
+  const { skipAuth, skipDealerHeader, body, headers: initHeaders, ...rest } =
+    options;
   const headers = new Headers(initHeaders);
 
   if (
@@ -79,6 +83,13 @@ export async function apiFetch<T>(
     const token = getAccessToken();
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
+  if (!skipAuth && !skipDealerHeader && !headers.has("x-dealer-id")) {
+    const actingId = getActingDealerId();
+    if (actingId) {
+      headers.set("x-dealer-id", actingId);
     }
   }
 
@@ -130,32 +141,40 @@ export async function apiFetch<T>(
  * Upload a file via multipart FormData to Node `POST /file-upload`.
  * Returns the public file URL from the response.
  */
+function extractUploadedFileUrl(body: unknown): string | undefined {
+  const record =
+    body && typeof body === "object" ? (body as Record<string, unknown>) : null;
+
+  const direct =
+    (typeof record?.file === "string" && record.file) ||
+    (typeof record?.url === "string" && record.url);
+  if (direct) return direct;
+
+  try {
+    const unwrapped = unwrapApiData(body);
+    if (typeof unwrapped === "string" && unwrapped.trim()) return unwrapped;
+    if (unwrapped && typeof unwrapped === "object") {
+      const data = unwrapped as Record<string, unknown>;
+      if (typeof data.file === "string" && data.file.trim()) return data.file;
+      if (typeof data.url === "string" && data.url.trim()) return data.url;
+    }
+  } catch {
+    // fall through to undefined
+  }
+
+  return undefined;
+}
+
 export async function apiUploadFile(file: File): Promise<string> {
   const form = new FormData();
   form.append("file", file);
 
-  const body = await apiFetch<{
-    success?: boolean;
-    file?: string;
-    data?: { file?: string; url?: string } | string;
-    url?: string;
-  }>("/file-upload", {
+  const body = await apiFetch<unknown>("/file-upload", {
     method: "POST",
     body: form,
   });
 
-  const url =
-    (typeof body.file === "string" && body.file) ||
-    (typeof body.url === "string" && body.url) ||
-    (typeof body.data === "string" && body.data) ||
-    (body.data &&
-      typeof body.data === "object" &&
-      (typeof body.data.file === "string"
-        ? body.data.file
-        : typeof body.data.url === "string"
-          ? body.data.url
-          : undefined));
-
+  const url = extractUploadedFileUrl(body);
   if (!url) {
     throw new ApiError({
       message: "Upload succeeded but no file URL was returned.",

@@ -9,13 +9,36 @@ export type DropdownMenuProps = {
   children: React.ReactNode;
   align?: "start" | "end";
   className?: string;
+  contentClassName?: string;
 };
+
+function isMenuItemElement(
+  child: React.ReactElement,
+): child is React.ReactElement<{
+  onSelect?: () => void;
+  onClick?: () => void;
+}> {
+  const type = child.type;
+  if (typeof type === "function" || typeof type === "object") {
+    const name =
+      (type as { displayName?: string; name?: string }).displayName ??
+      (type as { name?: string }).name;
+    if (name === "DropdownMenuLabel" || name === "DropdownMenuSeparator") {
+      return false;
+    }
+  }
+  const props = child.props as { onClick?: unknown; onSelect?: unknown };
+  return (
+    typeof props.onClick === "function" || typeof props.onSelect === "function"
+  );
+}
 
 export function DropdownMenu({
   trigger,
   children,
   align = "end",
   className,
+  contentClassName,
 }: DropdownMenuProps) {
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -60,17 +83,15 @@ export function DropdownMenu({
           className={cn(
             "absolute top-full z-40 mt-1 min-w-[160px] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-[var(--shadow-card)]",
             align === "end" ? "right-0" : "left-0",
+            contentClassName,
           )}
         >
           {React.Children.map(children, (child) => {
             if (!React.isValidElement(child)) return child;
-            const existing = child as React.ReactElement<{
-              onSelect?: () => void;
-              onClick?: () => void;
-            }>;
-            const childOnSelect = existing.props.onSelect;
-            const childOnClick = existing.props.onClick;
-            return React.cloneElement(existing, {
+            if (!isMenuItemElement(child)) return child;
+            const childOnSelect = child.props.onSelect;
+            const childOnClick = child.props.onClick;
+            return React.cloneElement(child, {
               onSelect: () => {
                 childOnSelect?.();
                 setOpen(false);
@@ -122,3 +143,41 @@ export function DropdownMenuItem({
     </button>
   );
 }
+
+export type DropdownMenuLabelProps = {
+  children: React.ReactNode;
+  className?: string;
+};
+
+export function DropdownMenuLabel({
+  children,
+  className,
+}: DropdownMenuLabelProps) {
+  return (
+    <div
+      className={cn(
+        "px-3 py-2 text-sm text-[var(--color-text-muted)]",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+DropdownMenuLabel.displayName = "DropdownMenuLabel";
+
+export type DropdownMenuSeparatorProps = {
+  className?: string;
+};
+
+export function DropdownMenuSeparator({
+  className,
+}: DropdownMenuSeparatorProps) {
+  return (
+    <div
+      role="separator"
+      className={cn("my-1 border-t border-[var(--color-border)]", className)}
+    />
+  );
+}
+DropdownMenuSeparator.displayName = "DropdownMenuSeparator";

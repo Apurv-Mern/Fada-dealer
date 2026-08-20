@@ -10,7 +10,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This dealer portal is a **static export** (`output: "export"` → `build/`). Nginx serves files only; no PM2/Node on the dealer host for the SPA.
 
 - Do **not** add Route Handlers (`app/api`), middleware/proxy auth, or server cookie sessions.
-- Features must be **client-side**: fetch via `apiFetch` / `getApiBaseUrl()`, Skeleton loading, auth via `sessionStorage` (`client-auth.ts`).
+- Features must be **client-side**: fetch via `apiFetch` / `getApiBaseUrl()`, Skeleton loading, auth via `localStorage` (`client-auth.ts`).
 - See `.cursor/rules/static-site.mdc` and `deploy/DEPLOY.md`.
 <!-- END:static-site -->
 

@@ -4,15 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Phone } from "lucide-react";
 
-import { dealerNavItems } from "@/config/navigation";
+import { dealerNavItems, routes } from "@/config/navigation";
 import { cn } from "@/lib/utils/cn";
 
 export type SidebarProps = {
   className?: string;
   onNavigate?: () => void;
+  locked?: boolean;
+  onLockedNavAttempt?: () => void;
 };
 
-export function Sidebar({ className, onNavigate }: SidebarProps) {
+export function Sidebar({
+  className,
+  onNavigate,
+  locked = false,
+  onLockedNavAttempt,
+}: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -31,7 +38,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
             FADA <span className="text-[var(--color-primary)]">ID</span>
           </p>
           <p className="text-[10px] font-medium tracking-wider text-[var(--color-text-muted)] uppercase">
-            Dealer Portal
+            Company Portal
           </p>
         </div>
       </div>
@@ -41,18 +48,39 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
+          const isDealership = item.href === routes.dealership;
+          const itemLocked = locked && !isDealership;
+
+          const itemClassName = cn(
+            "relative flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors",
+            itemLocked
+              ? "cursor-not-allowed opacity-60 text-[var(--color-text-muted)]"
+              : active
+                ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
+                : "text-[var(--color-text-muted)] hover:bg-white hover:text-[var(--color-text)]",
+          );
+
+          if (itemLocked) {
+            return (
+              <button
+                key={item.href}
+                type="button"
+                aria-disabled="true"
+                className={itemClassName}
+                onClick={() => onLockedNavAttempt?.()}
+              >
+                <Icon className="size-4 shrink-0" aria-hidden />
+                <span>{item.label}</span>
+              </button>
+            );
+          }
 
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={onNavigate}
-              className={cn(
-                "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-                active
-                  ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
-                  : "text-[var(--color-text-muted)] hover:bg-white hover:text-[var(--color-text)]",
-              )}
+              className={itemClassName}
             >
               {active ? (
                 <span className="absolute top-1/2 left-0 h-6 w-1 -translate-y-1/2 rounded-r bg-[var(--color-primary)]" />

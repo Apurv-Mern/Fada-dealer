@@ -21,6 +21,10 @@ import {
   deleteContactPerson,
   updateContactPerson,
 } from "@/features/dealership/api";
+import {
+  profileGridCardClass,
+  profileGridCardScrollClass,
+} from "@/features/dealership/components/profile-grid-card";
 import type { KeyContact, KeyContactInput } from "@/features/dealership/types";
 import { displayValue } from "@/features/dealership/types";
 import { toAuthErrorMessage } from "@/features/auth/client-auth";
@@ -59,7 +63,7 @@ export function DealershipContactsSection({
   }
 
   return (
-    <Card className="flex min-h-0 flex-col">
+    <Card className={profileGridCardClass}>
       <CardHeader>
         <CardTitle>Contact Persons</CardTitle>
         <button
@@ -73,67 +77,69 @@ export function DealershipContactsSection({
           Manage
         </button>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-3">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
         {contacts.length === 0 ? (
           <p className="flex flex-1 items-center justify-center py-8 text-center text-sm text-[var(--color-text-muted)]">
             No contact persons added yet.
           </p>
         ) : (
-          <ul className="min-h-0 flex-1 divide-y divide-[var(--color-border)] overflow-y-auto">
-            {contacts.map((contact) => (
-              <li
-                key={contact.id}
-                className="flex items-start justify-between gap-2 py-3 first:pt-0"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-[var(--color-heading)]">
-                    {displayValue(contact.name)}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-[var(--color-text-muted)]">
-                    {[
-                      displayValue(contact.designation),
-                      displayValue(contact.email),
-                      displayValue(contact.phone),
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                  <Badge
-                    className="mt-2"
-                    variant={contact.isActive ? "success" : "muted"}
-                  >
-                    {contact.isActive ? "Active" : "Inactive"}
-                  </Badge>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setEditing(contact);
-                      setOpen(true);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Delete ${contact.name}`}
-                    onClick={() => setPendingDelete(contact)}
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className={profileGridCardScrollClass}>
+            <ul className="divide-y divide-[var(--color-border)]">
+              {contacts.map((contact) => (
+                <li
+                  key={contact.id}
+                  className="flex items-start justify-between gap-2 py-3 first:pt-0"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[var(--color-heading)]">
+                      {displayValue(contact.name)}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-[var(--color-text-muted)]">
+                      {[
+                        displayValue(contact.designation),
+                        displayValue(contact.email),
+                        displayValue(contact.phone),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    <Badge
+                      className="mt-2"
+                      variant={contact.isActive ? "success" : "muted"}
+                    >
+                      {contact.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditing(contact);
+                        setOpen(true);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Delete ${contact.name}`}
+                      onClick={() => setPendingDelete(contact)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         <Button
           variant="secondary"
           fullWidth
-          className="mt-auto border-[var(--color-primary-soft)] bg-[var(--color-primary-soft)] text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]"
+          className="mt-auto shrink-0 border-[var(--color-primary-soft)] bg-[var(--color-primary-soft)] text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]"
           onClick={openAdd}
         >
           <Plus />

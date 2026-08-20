@@ -4,6 +4,7 @@ import { dealerLogout } from "@/features/auth/client-auth";
 import {
   clearTokens,
   getAccessToken,
+  getActingDealerId,
   setSession,
 } from "@/features/auth/token-store";
 
@@ -23,6 +24,7 @@ describe("dealerLogout", () => {
       accessToken: "access-1",
       refreshToken: "refresh-1",
       profile: {
+        id: "16",
         email: "a@b.com",
         name: "A",
         role: "Admin",
@@ -32,7 +34,9 @@ describe("dealerLogout", () => {
 
   it("clears tokens immediately without waiting on network", () => {
     expect(getAccessToken()).toBe("access-1");
+    expect(getActingDealerId()).toBe("16");
     dealerLogout();
     expect(getAccessToken()).toBeNull();
+    expect(getActingDealerId()).toBeNull();
   });
 });

@@ -22,8 +22,12 @@ export {
 export {
   DropdownMenu,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   type DropdownMenuItemProps,
+  type DropdownMenuLabelProps,
   type DropdownMenuProps,
+  type DropdownMenuSeparatorProps,
 } from "./dropdown-menu";
 export { EmptyState, type EmptyStateProps } from "./empty-state";
 export { PasswordInput, type PasswordInputProps } from "./password-input";
@@ -33,7 +37,14 @@ export {
   type DonutSlice,
 } from "./donut-chart";
 export { Input, type InputProps } from "./input";
+export { OtpInput, type OtpInputProps } from "./otp-input";
 export { Label, type LabelProps } from "./label";
+export {
+  MasterChipSelect,
+  toChipItems,
+  type MasterChipItem,
+  type MasterChipSelectProps,
+} from "./master-chip-select";
 export { Pagination, type PaginationProps } from "./pagination";
 export { ScoreBar, type ScoreBarProps } from "./score-bar";
 export {

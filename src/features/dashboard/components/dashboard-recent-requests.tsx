@@ -58,7 +58,7 @@ export function DashboardRecentRequests({
       className: "text-right",
       cell: () => (
         <Link
-          href="/employment-actions"
+          href="/verifications"
           className="text-sm font-medium text-[var(--color-primary)] hover:underline"
         >
           View
@@ -72,7 +72,7 @@ export function DashboardRecentRequests({
       <CardHeader>
         <CardTitle>Recent Employment Requests</CardTitle>
         <Link
-          href="/employment-actions"
+          href="/verifications"
           className="text-sm font-medium text-[var(--color-primary)] hover:underline"
         >
           View All

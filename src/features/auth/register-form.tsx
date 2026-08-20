@@ -153,7 +153,7 @@ export function RegisterForm() {
 
   return (
     <AuthCard
-      title="Register your dealership"
+      title="Register your company"
       description="We will send an OTP to verify your email."
       footer={
         <>
@@ -169,7 +169,7 @@ export function RegisterForm() {
     >
       <form onSubmit={handleRegister} className="space-y-4" noValidate>
         <Input
-          label="Dealership name"
+          label="Company name"
           placeholder="e.g. Sharma Motors Pvt Ltd"
           leftAddon={<Building2 />}
           value={form.name}
@@ -178,13 +178,13 @@ export function RegisterForm() {
           required
         />
         <Input
-          label="Dealer code"
-          placeholder="Your dealer / membership code"
+          label="Company code"
+          placeholder="Your company / membership code"
+          helperText="Optional — your company or membership code"
           leftAddon={<Hash />}
           value={form.dealerCode}
           onChange={(e) => update("dealerCode", e.target.value)}
           error={errors.dealerCode}
-          required
         />
         <Input
           label="Email address"

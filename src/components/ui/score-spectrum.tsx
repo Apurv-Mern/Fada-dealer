@@ -9,7 +9,7 @@ export type ScoreSpectrumProps = {
 
 export function ScoreSpectrum({
   value,
-  markerLabel = "Dealership average",
+  markerLabel = "Company average",
   className,
 }: ScoreSpectrumProps) {
   const hasMarker =

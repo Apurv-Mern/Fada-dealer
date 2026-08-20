@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { Filter, Plus, Upload } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Filter, Plus, Upload, UserRoundPlus } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -11,22 +11,20 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  ConfirmDialog,
   Pagination,
   SearchInput,
   Sheet,
-  toast,
 } from "@/components/ui";
 import { EmployeesCards } from "@/features/employees/components/employees-cards";
 import {
   EmployeesAddDialog,
   EmployeesImportDialog,
 } from "@/features/employees/components/employees-dialogs";
+import { EmployeesRejoinDialog } from "@/features/employees/components/employees-rejoin-dialog";
+import { EmployeesTransferDialog } from "@/features/employees/components/employees-transfer-dialog";
 import { EmployeesFilters } from "@/features/employees/components/employees-filters";
 import { EmployeesStats } from "@/features/employees/components/employees-stats";
 import { EmployeesTable } from "@/features/employees/components/employees-table";
-import { deactivateEmployee } from "@/features/employees/api";
-import { toAuthErrorMessage } from "@/features/auth/client-auth";
 import type {
   Employee,
   EmployeeFilterOptions,
@@ -61,22 +59,39 @@ export function EmployeesView({
 }: EmployeesViewProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [searchDraft, setSearchDraft] = useState(query.q);
   const [searchFromUrl, setSearchFromUrl] = useState(query.q);
   const [selected, setSelected] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [editing, setEditing] = useState<Employee | null>(null);
-  const [pendingDeactivate, setPendingDeactivate] = useState<Employee | null>(
-    null,
+  const [importOpen, setImportOpen] = useState(
+    () => searchParams.get("import") === "1",
   );
-  const [deactivating, setDeactivating] = useState(false);
+  const [editing, setEditing] = useState<Employee | null>(null);
+  const [transferring, setTransferring] = useState<Employee | null>(null);
+  const [rejoinOpen, setRejoinOpen] = useState(false);
 
   if (query.q !== searchFromUrl) {
     setSearchFromUrl(query.q);
     setSearchDraft(query.q);
+  }
+
+  useEffect(() => {
+    if (searchParams.get("import") === "1") {
+      setImportOpen(true);
+    }
+  }, [searchParams]);
+
+  function setImportDialogOpen(open: boolean) {
+    setImportOpen(open);
+    if (!open && searchParams.get("import") === "1") {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("import");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }
   }
 
   const syncUrl = useCallback(
@@ -144,21 +159,6 @@ export function EmployeesView({
     setAddOpen(true);
   }
 
-  async function confirmDeactivate() {
-    if (!pendingDeactivate) return;
-    setDeactivating(true);
-    try {
-      await deactivateEmployee(pendingDeactivate);
-      toast.success("Employee deactivated");
-      setPendingDeactivate(null);
-      onRefresh?.();
-    } catch (err) {
-      toast.error(toAuthErrorMessage(err, "Failed to deactivate employee"));
-    } finally {
-      setDeactivating(false);
-    }
-  }
-
   const filterControls = (
     <EmployeesFilters
       branchId={query.branchId}
@@ -177,12 +177,16 @@ export function EmployeesView({
     <div>
       <PageHeader
         title="Employee Management"
-        description="Search, onboard, and manage dealership employment relationships."
+        description="Search, onboard, and manage company employment relationships."
         actions={
           <>
-            <Button variant="secondary" onClick={() => setImportOpen(true)}>
+            <Button variant="secondary" onClick={() => setImportDialogOpen(true)}>
               <Upload />
               Import Employees
+            </Button>
+            <Button variant="secondary" onClick={() => setRejoinOpen(true)}>
+              <UserRoundPlus />
+              Invite Employee
             </Button>
             <Button
               onClick={() => {
@@ -210,29 +214,6 @@ export function EmployeesView({
             onClick={() => setSelected([])}
           >
             Clear
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => {
-              void (async () => {
-                try {
-                  const targets = list.items.filter((e) =>
-                    selected.includes(e.id),
-                  );
-                  await Promise.all(targets.map((e) => deactivateEmployee(e)));
-                  toast.success(`Deactivated ${targets.length} employee(s)`);
-                  setSelected([]);
-                  onRefresh?.();
-                } catch (err) {
-                  toast.error(
-                    toAuthErrorMessage(err, "Failed to deactivate employees"),
-                  );
-                }
-              })();
-            }}
-          >
-            Deactivate
           </Button>
         </div>
       ) : null}
@@ -267,7 +248,7 @@ export function EmployeesView({
             loading={isRefreshing}
             onToggleOne={toggleOne}
             onEdit={openEdit}
-            onDeactivate={setPendingDeactivate}
+            onTransfer={setTransferring}
           />
           <EmployeesTable
             rows={pageRows}
@@ -277,7 +258,7 @@ export function EmployeesView({
             onToggleAll={toggleAll}
             onToggleOne={toggleOne}
             onEdit={openEdit}
-            onDeactivate={setPendingDeactivate}
+            onTransfer={setTransferring}
           />
           <Pagination
             page={list.page}
@@ -286,21 +267,6 @@ export function EmployeesView({
             label="employees"
             onPageChange={(next) => syncUrl({ page: next })}
             onPageSizeChange={(size) => syncUrl({ page: 1, pageSize: size })}
-          />
-
-          <ConfirmDialog
-            open={pendingDeactivate !== null}
-            onOpenChange={(open) => {
-              if (!open) setPendingDeactivate(null);
-            }}
-            description={
-              pendingDeactivate
-                ? `Deactivate employee “${pendingDeactivate.name}”? They will be marked inactive.`
-                : undefined
-            }
-            confirmLabel="Deactivate"
-            isLoading={deactivating}
-            onConfirm={confirmDeactivate}
           />
         </CardContent>
       </Card>
@@ -329,7 +295,26 @@ export function EmployeesView({
         filterOptions={filterOptions}
         onSaved={onRefresh}
       />
-      <EmployeesImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <EmployeesImportDialog
+        open={importOpen}
+        onOpenChange={setImportDialogOpen}
+        onImported={onRefresh}
+      />
+      <EmployeesTransferDialog
+        employee={transferring}
+        filterOptions={filterOptions}
+        open={transferring !== null}
+        onOpenChange={(open) => {
+          if (!open) setTransferring(null);
+        }}
+        onTransferred={onRefresh}
+      />
+      <EmployeesRejoinDialog
+        open={rejoinOpen}
+        onOpenChange={setRejoinOpen}
+        filterOptions={filterOptions}
+        onInvited={onRefresh}
+      />
     </div>
   );
 }

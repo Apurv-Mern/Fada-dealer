@@ -22,7 +22,7 @@ export default function DealershipPage() {
   if (error || !data) {
     return (
       <SectionError
-        description={error ?? "Couldn't load dealership profile."}
+        description={error ?? "Couldn't load company profile."}
         onRetry={retry}
       />
     );

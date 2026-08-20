@@ -86,24 +86,24 @@ function PendingRequestsCard({ pending }: { pending: PendingRequestCounts }) {
           count={pending.join}
           icon={UserPlus}
           tone="blue"
-          href="/employment-actions"
+          href="/verifications"
         />
         <RequestMetricRow
           title="Exit Requests"
           count={pending.exit}
           icon={LogOut}
           tone="red"
-          href="/employment-actions"
+          href="/verifications"
         />
         <RequestMetricRow
           title="Transfer Requests"
           count={pending.transfer}
           icon={ArrowRightLeft}
           tone="purple"
-          href="/employment-actions"
+          href="/verifications"
         />
         <Link
-          href="/employment-actions"
+          href="/verifications"
           className={cn(
             buttonVariants({ variant: "secondary", fullWidth: true }),
             "mt-auto border-[var(--color-primary-soft)] bg-[var(--color-primary-soft)] text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]",

@@ -1,6 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 import { Avatar, Badge, Checkbox, ScoreBar, Skeleton } from "@/components/ui";
+import { routes } from "@/config/navigation";
 import {
   EmployeeRowActions,
   statusBadge,
@@ -12,16 +16,24 @@ export function EmployeesCards({
   selected,
   loading,
   onToggleOne,
+  onView,
   onEdit,
-  onDeactivate,
+  onTransfer,
 }: {
   rows: Employee[];
   selected: string[];
   loading: boolean;
   onToggleOne: (id: string) => void;
+  onView?: (employee: Employee) => void;
   onEdit?: (employee: Employee) => void;
-  onDeactivate?: (employee: Employee) => void;
+  onTransfer?: (employee: Employee) => void;
 }) {
+  const router = useRouter();
+  const handleView =
+    onView ??
+    ((employee: Employee) => {
+      router.push(routes.employeeDetail(employee.id));
+    });
   return (
     <div className="md:hidden">
       {loading ? (
@@ -50,9 +62,12 @@ export function EmployeesCards({
                   <div className="flex min-w-0 items-center gap-3">
                     <Avatar name={row.name} size="md" className="shrink-0" />
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-[var(--color-heading)]">
+                      <Link
+                        href={routes.employeeDetail(row.id)}
+                        className="truncate font-semibold text-[var(--color-heading)] hover:underline"
+                      >
                         {row.name}
-                      </p>
+                      </Link>
                       <p className="text-xs text-[var(--color-text-muted)]">
                         {row.fadaId}
                       </p>
@@ -62,8 +77,9 @@ export function EmployeesCards({
                     <Badge variant={statusBadge[row.status]}>{row.status}</Badge>
                     <EmployeeRowActions
                       employee={row}
+                      onView={handleView}
                       onEdit={onEdit}
-                      onDeactivate={onDeactivate}
+                      onTransfer={onTransfer}
                     />
                   </div>
                 </div>

@@ -5,28 +5,49 @@ import { useCallback } from "react";
 import { SectionError } from "@/components/layout/section-error";
 import { getBranchDashboard } from "@/features/branches/api";
 import { BranchesSkeleton } from "@/features/branches/branches-skeleton";
-import { BranchesView } from "@/features/branches/branches-view";
+import {
+  BranchesHeader,
+  BranchesView,
+} from "@/features/branches/branches-view";
 import { useAsyncResource } from "@/lib/hooks/use-async-resource";
 
 export default function BranchesPage() {
-  const loader = useCallback(() => getBranchDashboard(), []);
-  const { data, error, loading, retry } = useAsyncResource({
-    key: "branch-dashboard",
-    loader,
+  const dashboardLoader = useCallback(() => getBranchDashboard(), []);
+
+  const {
+    data: dashboard,
+    error: dashboardError,
+    loading: dashboardLoading,
+    isRefreshing: dashboardRefreshing,
+    retry: retryDashboard,
+  } = useAsyncResource({
+    key: "branch-dashboard|main",
+    loader: dashboardLoader,
   });
 
-  if (loading && !data) {
-    return <BranchesSkeleton />;
-  }
+  const showDashboardSkeleton =
+    (dashboardLoading && !dashboard) || dashboardRefreshing;
 
-  if (error || !data) {
+  if (showDashboardSkeleton) {
     return (
-      <SectionError
-        description={error ?? "Couldn't load branches."}
-        onRetry={retry}
-      />
+      <div>
+        <BranchesHeader />
+        <BranchesSkeleton hideHeader />
+      </div>
     );
   }
 
-  return <BranchesView dashboard={data} onRefresh={retry} />;
+  if (dashboardError || !dashboard) {
+    return (
+      <div>
+        <BranchesHeader />
+        <SectionError
+          description={dashboardError ?? "Couldn't load branches."}
+          onRetry={retryDashboard}
+        />
+      </div>
+    );
+  }
+
+  return <BranchesView dashboard={dashboard} onRefresh={retryDashboard} />;
 }

@@ -7,35 +7,46 @@ import {
   CardTitle,
   buttonVariants,
 } from "@/components/ui";
+import { BrandsReadonlyChips } from "@/features/dealership/components/brands-readonly-chips";
+import { ProfileFieldValue } from "@/features/dealership/components/profile-field-value";
 import {
-  displayValue,
-  type DealerProfile,
-} from "@/features/dealership/types";
+  profileGridCardClass,
+  profileGridCardScrollClass,
+} from "@/features/dealership/components/profile-grid-card";
+import type { DealerProfile } from "@/features/dealership/types";
 import { cn } from "@/lib/utils/cn";
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
     <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] py-2.5 last:border-b-0">
       <span className="text-sm text-[var(--color-text-muted)]">{label}</span>
-      <span className="min-h-5 max-w-[55%] break-words text-right text-sm font-semibold text-[var(--color-heading)]">
+      <div className="min-h-5 max-w-[55%] break-words text-right text-sm font-semibold text-[var(--color-heading)]">
         {value}
-      </span>
+      </div>
     </div>
   );
 }
 
 export function DealershipBusinessDetailsCard({
   profile,
+  editing,
   onEdit,
 }: {
   profile: DealerProfile;
+  editing?: boolean;
   onEdit?: () => void;
 }) {
   return (
-    <Card className="flex min-h-0 flex-col">
+    <Card className={profileGridCardClass}>
       <CardHeader>
         <CardTitle>Business Details</CardTitle>
-        {onEdit ? (
+        {onEdit && !editing ? (
           <button
             type="button"
             onClick={onEdit}
@@ -48,26 +59,32 @@ export function DealershipBusinessDetailsCard({
           </button>
         ) : null}
       </CardHeader>
-      <CardContent className="flex-1">
-        <Row label="Nature of Business" value="" />
-        <Row label="Brands Represented" value="" />
-        <Row label="Total Showrooms" value="" />
-        <Row label="Total Workshops" value="" />
-        <Row
-          label="Total Employees"
-          value={
-            profile.allEmployees != null ? String(profile.allEmployees) : ""
-          }
-        />
-        <Row
-          label="Active Branches"
-          value={
-            profile.totalOutlets != null ? String(profile.totalOutlets) : ""
-          }
-        />
-        <Row label="City" value={displayValue(profile.city)} />
-        <Row label="State" value={displayValue(profile.state)} />
-        <Row label="Pin Code" value={displayValue(profile.pinCode)} />
+      <CardContent className="flex min-h-0 flex-1 flex-col">
+        <div className={profileGridCardScrollClass}>
+          <Row
+            label="Brands Represented"
+            value={
+              <BrandsReadonlyChips
+                brandsRepresented={profile.brandsRepresented}
+                align="end"
+              />
+            }
+          />
+          <Row
+            label="Total Employees"
+            value={String(profile.allEmployees ?? 0)}
+          />
+          <Row
+            label="Active Branches"
+            value={String(profile.totalOutlets ?? 0)}
+          />
+          <Row label="City" value={<ProfileFieldValue value={profile.city} />} />
+          <Row label="State" value={<ProfileFieldValue value={profile.state} />} />
+          <Row
+            label="Pin Code"
+            value={<ProfileFieldValue value={profile.pinCode} />}
+          />
+        </div>
       </CardContent>
     </Card>
   );

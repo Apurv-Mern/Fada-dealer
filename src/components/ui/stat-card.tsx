@@ -30,6 +30,11 @@ const toneStyles = {
     iconColor: "text-[var(--color-danger)]",
     valueColor: "text-[var(--color-danger)]",
   },
+  yellow: {
+    iconBg: "bg-[var(--color-warning-soft)]",
+    iconColor: "text-[var(--color-warning)]",
+    valueColor: "text-[var(--color-warning)]",
+  },
 } as const;
 
 export type StatCardProps = {

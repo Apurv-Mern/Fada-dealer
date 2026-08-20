@@ -82,6 +82,7 @@ id_rsa*
 tmp/
 temp/
 .tmp/
+.tmp-*
 *.local
 
 # tooling caches / editor extras

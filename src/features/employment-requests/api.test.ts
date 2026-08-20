@@ -1,0 +1,660 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import {
+  getEmploymentActionsPage,
+  mapLeavingToAction,
+} from "@/features/employment-actions/api";
+import {
+  advanceInvitationStatus,
+  advanceLeavingStatus,
+  clearEmploymentRequestsListCache,
+  collectCompletedJoinSteps,
+  collectCompletedLeavingSteps,
+  getEmploymentRequestsPage,
+  getInvitationDetail,
+  getInvitationSteps,
+  getLeavingDetail,
+  getLeavingSteps,
+  mapApiInvitation,
+  mapApiLeaving,
+  mapInvitationDetail,
+  mapInvitationSteps,
+  mapLeavingDetail,
+  mapLeavingSteps,
+} from "@/features/employment-requests/api";
+import { nextJoinInvitationStatus } from "@/features/employment-requests/joining-steps";
+import { nextLeavingExitStatus } from "@/features/employment-requests/leaving-steps";
+import {
+  mockEmploymentRequests,
+  resetMockEmploymentRequests,
+} from "@/features/employment-requests/mocks/data";
+import { computeTypeCounts } from "@/features/employment-requests/types";
+import { apiFetch, isMockMode } from "@/lib/api";
+import { ApiError } from "@/lib/api/errors";
+
+vi.mock("@/lib/api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  return {
+    ...actual,
+    isMockMode: vi.fn(() => true),
+    apiFetch: vi.fn(),
+  };
+});
+
+function resetEmploymentRequestsApiState() {
+  resetMockEmploymentRequests();
+  clearEmploymentRequestsListCache();
+  vi.mocked(isMockMode).mockReturnValue(true);
+  vi.mocked(apiFetch).mockReset();
+}
+
+function mockLiveEmploymentRequestsFetch() {
+  vi.mocked(apiFetch).mockImplementation(async (path: string) => {
+    if (String(path).includes("/dealers/employer-invitations")) {
+      return {
+        data: [{ id: 1, status: "pending", employee: { name: "Join Emp" } }],
+      };
+    }
+    if (String(path).includes("/dealers/employer-leaving")) {
+      return {
+        data: [{ id: 2, status: "pending", employee: { name: "Exit Emp" } }],
+      };
+    }
+    if (String(path).includes("/dealers/outlets")) {
+      return { data: [] };
+    }
+    throw new ApiError({ message: `Unexpected ${path}`, status: 500 });
+  });
+}
+
+function listFetchPaths(): string[] {
+  return vi
+    .mocked(apiFetch)
+    .mock.calls.map(([path]) => String(path))
+    .filter(
+      (path) =>
+        path.includes("/dealers/employer-invitations") ||
+        path.includes("/dealers/employer-leaving"),
+    );
+}
+
+describe("mapApiLeaving", () => {
+  it("maps nested leaving payload to an Exit request", () => {
+    const row = mapApiLeaving({
+      id: 42,
+      status: "pending",
+      createdAt: "2026-03-27T10:00:00.000Z",
+      employee: { name: "Meera Joshi", fadaId: "MH/2021/MJ/0440" },
+      outlet: { id: 9, name: "Pune Service" },
+    });
+
+    expect(row.id).toBe("42");
+    expect(row.requestType).toBe("Exit");
+    expect(row.canDecide).toBe(true);
+    expect(row.canAdvanceWorkflow).toBe(true);
+    expect(row.employeeName).toBe("Meera Joshi");
+    expect(row.fadaId).toBe("MH/2021/MJ/0440");
+    expect(row.branchName).toBe("Pune Service");
+    expect(row.branchId).toBe("9");
+    expect(row.requestedAt).toBe("2026-03-27");
+  });
+
+  it("maps accepted leaving to Accepted with workflow actions", () => {
+    const row = mapApiLeaving({ id: 1, status: "accepted" });
+    expect(row.status).toBe("Accepted");
+    expect(row.canDecide).toBe(false);
+    expect(row.canAdvanceWorkflow).toBe(true);
+    expect(row.requestType).toBe("Exit");
+  });
+
+  it("maps accepted leaving with exit_completed to Approved", () => {
+    const row = mapApiLeaving({
+      id: 1,
+      status: "accepted",
+      statuses: [
+        { status: "inform_employer" },
+        { status: "accept_resignation" },
+        { status: "handover_completed" },
+        { status: "clearance_completed" },
+        { status: "exit_completed" },
+      ],
+    });
+    expect(row.status).toBe("Approved");
+    expect(row.canAdvanceWorkflow).toBe(false);
+  });
+});
+
+describe("nextLeavingExitStatus", () => {
+  it("returns inform_employer when statuses is empty", () => {
+    expect(nextLeavingExitStatus([])).toBe("inform_employer");
+  });
+});
+
+describe("collectCompletedLeavingSteps", () => {
+  it("normalizes history slugs and fills earlier workflow steps", () => {
+    expect(
+      collectCompletedLeavingSteps({
+        status: "accepted",
+        history: [{ status: "clearance_completed" }],
+      }),
+    ).toEqual(
+      expect.arrayContaining(["handover_completed", "clearance_completed"]),
+    );
+  });
+
+  it("includes early workflow statuses from statuses array", () => {
+    expect(
+      collectCompletedLeavingSteps({
+        status: "accepted",
+        statuses: [
+          { status: "inform_employer" },
+          { status: "accept_resignation" },
+          { status: "handover_completed" },
+        ],
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        "inform_employer",
+        "accept_resignation",
+        "handover_completed",
+      ]),
+    );
+  });
+});
+
+describe("mapLeavingDetail", () => {
+  it("includes resignation fields and history", () => {
+    const row = mapLeavingDetail({
+      id: 8,
+      status: "handover_completed",
+      resignationDate: "2026-03-12",
+      lastWorkingDay: "2026-03-31",
+      reason: "Relocation",
+      employee: { name: "Rahul Nair", fadaId: "MH/2023/RN/0777" },
+      history: [
+        { id: 1, status: "accept_resignation", createdAt: "2026-03-13T10:00:00.000Z" },
+        { id: 2, status: "handover_completed", createdAt: "2026-03-18T11:00:00.000Z" },
+      ],
+    });
+    expect(row.resignationDate).toBe("2026-03-12");
+    expect(row.lastWorkingDay).toBe("2026-03-31");
+    expect(row.reason).toBe("Relocation");
+    expect(row.completedSteps).toEqual(
+      expect.arrayContaining(["accept_resignation", "handover_completed"]),
+    );
+    expect(row.history).toHaveLength(2);
+    expect(row.canAdvanceWorkflow).toBe(true);
+  });
+});
+
+describe("mapLeavingSteps", () => {
+  it("maps step payloads and falls back when empty", () => {
+    const steps = mapLeavingSteps({
+      data: [
+        { id: 1, status: "handover_completed", title: "Handover", description: "Done" },
+      ],
+    });
+    expect(steps[0]?.status).toBe("handover_completed");
+    expect(mapLeavingSteps({ data: [] }).length).toBe(6);
+  });
+});
+
+describe("mapApiInvitation", () => {
+  it("still maps as Join", () => {
+    const row = mapApiInvitation({ id: 7, status: "pending" });
+    expect(row.requestType).toBe("Join");
+    expect(row.canDecide).toBe(true);
+  });
+
+  it("maps in-review invitation with completed steps", () => {
+    const row = mapApiInvitation({
+      id: 2,
+      status: "accepted",
+      employee: {
+        name: "Vikram Shah",
+        fadaId: "MH/2023/VS/1540",
+        phone: "+91 91234 56789",
+      },
+      outlet: { id: "pune", name: "Pune Service" },
+      department: { name: "Service" },
+      designation: { name: "Service Advisor" },
+      statuses: [
+        { status: "send_invitation" },
+        { status: "accept_invitation" },
+        { status: "share_details" },
+      ],
+    });
+    expect(row.status).toBe("In Review");
+    expect(row.canAdvanceWorkflow).toBe(true);
+    expect(row.completedSteps).toEqual(
+      expect.arrayContaining([
+        "send_invitation",
+        "accept_invitation",
+        "share_details",
+      ]),
+    );
+    expect(row.departmentName).toBe("Service");
+    expect(row.designationName).toBe("Service Advisor");
+    expect(row.mobile).toBe("+91 91234 56789");
+  });
+
+  it("maps joining_confirmed to Approved", () => {
+    const row = mapApiInvitation({
+      id: 3,
+      status: "verified",
+      statuses: [{ status: "joining_confirmed" }],
+    });
+    expect(row.status).toBe("Approved");
+    expect(row.canAdvanceWorkflow).toBe(false);
+  });
+});
+
+describe("nextJoinInvitationStatus", () => {
+  it("returns send_invitation when statuses is empty", () => {
+    expect(nextJoinInvitationStatus([])).toBe("send_invitation");
+  });
+});
+
+describe("collectCompletedJoinSteps", () => {
+  it("normalizes history slugs and fills earlier workflow steps", () => {
+    expect(
+      collectCompletedJoinSteps({
+        status: "accepted",
+        history: [{ status: "employer_verification" }],
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        "send_invitation",
+        "accept_invitation",
+        "share_details",
+        "employer_verification",
+      ]),
+    );
+  });
+});
+
+describe("mapInvitationDetail", () => {
+  it("includes join fields and history", () => {
+    const row = mapInvitationDetail({
+      id: 8,
+      status: "share_details",
+      employee: { name: "Vikram Shah", fadaId: "MH/2023/VS/1540" },
+      department: { name: "Service" },
+      designation: { name: "Service Advisor" },
+      history: [
+        { id: 1, status: "send_invitation", createdAt: "2026-03-25T09:00:00.000Z" },
+        { id: 2, status: "accept_invitation", createdAt: "2026-03-25T11:00:00.000Z" },
+      ],
+    });
+    expect(row.departmentName).toBe("Service");
+    expect(row.designationName).toBe("Service Advisor");
+    expect(row.completedSteps).toEqual(
+      expect.arrayContaining(["send_invitation", "accept_invitation"]),
+    );
+    expect(row.history).toHaveLength(2);
+    expect(row.canAdvanceWorkflow).toBe(true);
+  });
+});
+
+describe("mapInvitationSteps", () => {
+  it("maps step payloads and falls back when empty", () => {
+    const steps = mapInvitationSteps({
+      data: [
+        {
+          id: 1,
+          status: "employer_verification",
+          title: "Employer Verification",
+          description: "Verify documents",
+        },
+      ],
+    });
+    expect(steps[0]?.status).toBe("employer_verification");
+    expect(mapInvitationSteps({ data: [] }).length).toBe(5);
+  });
+});
+
+describe("mapLeavingToAction", () => {
+  it("maps leaving payload to Exit action", () => {
+    const row = mapLeavingToAction({
+      id: 12,
+      status: "pending",
+      employee: { name: "Rahul Nair", fadaId: "MH/2023/RN/0777", phone: "9876543210" },
+      outlet: { id: 3, name: "Thane Sales" },
+    });
+
+    expect(row.actionType).toBe("Exit");
+    expect(row.source).toBe("leaving");
+    expect(row.employeeName).toBe("Rahul Nair");
+    expect(row.actionDetails).toBe("Exit request from Thane Sales");
+  });
+});
+
+describe("mock employment requests", () => {
+  it("includes Join and Exit rows only", () => {
+    const counts = computeTypeCounts(mockEmploymentRequests);
+    expect(counts.join).toBe(4);
+    expect(counts.exit).toBe(4);
+    expect(mockEmploymentRequests.some((r) => r.id === "leave-1" && r.canDecide)).toBe(
+      true,
+    );
+    expect(
+      mockEmploymentRequests.some(
+        (r) => r.id === "leave-2" && r.canAdvanceWorkflow,
+      ),
+    ).toBe(true);
+    expect(
+      mockEmploymentRequests.some(
+        (r) => r.id === "inv-2" && r.status === "In Review",
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("join workflow order", () => {
+  afterEach(() => {
+    resetEmploymentRequestsApiState();
+  });
+
+  it("loads mock invitation detail with history and completed steps", async () => {
+    const detail = await getInvitationDetail("inv-2");
+    expect(detail.requestType).toBe("Join");
+    expect(detail.completedSteps).toEqual(
+      expect.arrayContaining([
+        "send_invitation",
+        "accept_invitation",
+        "share_details",
+      ]),
+    );
+    expect(detail.history.length).toBeGreaterThan(0);
+    expect(nextJoinInvitationStatus(detail.completedSteps)).toBe(
+      "employer_verification",
+    );
+  });
+
+  it("advances join steps in order", async () => {
+    const inProgress = await getInvitationDetail("inv-2");
+    await advanceInvitationStatus(inProgress, "employer_verification");
+    const afterVerification = await getInvitationDetail("inv-2");
+    expect(afterVerification.completedSteps).toEqual(
+      expect.arrayContaining(["employer_verification"]),
+    );
+    await expect(
+      advanceInvitationStatus(afterVerification, "share_details"),
+    ).rejects.toThrow("already completed");
+    await advanceInvitationStatus(afterVerification, "joining_confirmed");
+    const done = await getInvitationDetail("inv-2");
+    expect(done.completedSteps).toContain("joining_confirmed");
+    expect(done.canAdvanceWorkflow).toBe(false);
+    expect(done.status).toBe("Approved");
+  });
+
+  it("loads mock invitation steps", async () => {
+    const steps = await getInvitationSteps();
+    expect(steps.map((s) => s.status)).toEqual([
+      "send_invitation",
+      "accept_invitation",
+      "share_details",
+      "employer_verification",
+      "joining_confirmed",
+    ]);
+  });
+});
+
+describe("live join advance routing", () => {
+  afterEach(() => {
+    resetEmploymentRequestsApiState();
+  });
+
+  it("uses PUT for join workflow steps", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    vi.mocked(apiFetch).mockResolvedValue({ success: true });
+
+    await advanceInvitationStatus(
+      {
+        id: "9",
+        employeeName: "Test",
+        fadaId: "—",
+        requestType: "Join",
+        fromTo: "Branch",
+        branchId: "1",
+        branchName: "Branch",
+        requestedAt: "2026-08-19",
+        status: "In Review",
+        canDecide: false,
+        canAdvanceWorkflow: true,
+        completedSteps: [
+          "send_invitation",
+          "accept_invitation",
+          "share_details",
+        ],
+      },
+      "employer_verification",
+    );
+
+    expect(apiFetch).toHaveBeenCalledWith(
+      "/dealers/employer-invitations/9/status/employer_verification",
+      { method: "PUT" },
+    );
+  });
+});
+
+describe("leaving workflow order", () => {
+  afterEach(() => {
+    resetEmploymentRequestsApiState();
+  });
+
+  it("advances early steps on pending exit requests", async () => {
+    const pending = mockEmploymentRequests.find((r) => r.id === "leave-1");
+    expect(pending).toBeTruthy();
+    expect(nextLeavingExitStatus(pending?.completedSteps)).toBe("inform_employer");
+
+    await advanceLeavingStatus(pending!, "inform_employer");
+    const afterInform = await getLeavingDetail("leave-1");
+    expect(afterInform.completedSteps).toContain("inform_employer");
+    expect(nextLeavingExitStatus(afterInform.completedSteps)).toBe(
+      "submit_resignation",
+    );
+  });
+
+  it("accept_resignation on pending uses accept path and sets Accepted", async () => {
+    const pending = await getLeavingDetail("leave-1");
+    await advanceLeavingStatus(pending, "inform_employer");
+    await advanceLeavingStatus(
+      await getLeavingDetail("leave-1"),
+      "submit_resignation",
+    );
+    await advanceLeavingStatus(
+      await getLeavingDetail("leave-1"),
+      "accept_resignation",
+    );
+    const accepted = await getLeavingDetail("leave-1");
+    expect(accepted.status).toBe("Accepted");
+    expect(accepted.completedSteps).toContain("accept_resignation");
+  });
+
+  it("advances handover → clearance → exit in order", async () => {
+    const inProgress = mockEmploymentRequests.find((r) => r.id === "leave-2");
+    expect(inProgress).toBeTruthy();
+    expect(nextLeavingExitStatus(inProgress?.completedSteps)).toBe(
+      "clearance_completed",
+    );
+    await advanceLeavingStatus(inProgress!, "clearance_completed");
+    const afterClearance = await getLeavingDetail("leave-2");
+    expect(afterClearance.completedSteps).toEqual(
+      expect.arrayContaining([
+        "inform_employer",
+        "submit_resignation",
+        "accept_resignation",
+        "handover_completed",
+        "clearance_completed",
+      ]),
+    );
+    await expect(
+      advanceLeavingStatus(afterClearance, "handover_completed"),
+    ).rejects.toThrow("already completed");
+    await advanceLeavingStatus(afterClearance, "exit_completed");
+    const done = await getLeavingDetail("leave-2");
+    expect(done.completedSteps).toContain("exit_completed");
+    expect(done.canAdvanceWorkflow).toBe(false);
+    expect(done.status).toBe("Approved");
+  });
+
+  it("loads mock leaving steps", async () => {
+    const steps = await getLeavingSteps();
+    expect(steps.map((s) => s.status)).toEqual([
+      "inform_employer",
+      "submit_resignation",
+      "accept_resignation",
+      "handover_completed",
+      "clearance_completed",
+      "exit_completed",
+    ]);
+  });
+});
+
+describe("live exit advance routing", () => {
+  afterEach(() => {
+    resetEmploymentRequestsApiState();
+  });
+
+  it("uses PATCH accept for accept_resignation and PUT for other steps", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    vi.mocked(apiFetch).mockResolvedValue({ success: true });
+
+    await advanceLeavingStatus(
+      {
+        id: "9",
+        employeeName: "Test",
+        fadaId: "—",
+        requestType: "Exit",
+        fromTo: "Branch",
+        branchId: "1",
+        branchName: "Branch",
+        requestedAt: "2026-08-19",
+        status: "Pending",
+        canDecide: true,
+        canAdvanceWorkflow: true,
+        completedSteps: ["inform_employer", "submit_resignation"],
+      },
+      "accept_resignation",
+    );
+
+    expect(apiFetch).toHaveBeenCalledWith(
+      "/dealers/employer-leaving/9/status/accept",
+      { method: "PATCH" },
+    );
+
+    await advanceLeavingStatus(
+      {
+        id: "9",
+        employeeName: "Test",
+        fadaId: "—",
+        requestType: "Exit",
+        fromTo: "Branch",
+        branchId: "1",
+        branchName: "Branch",
+        requestedAt: "2026-08-19",
+        status: "Accepted",
+        canDecide: false,
+        canAdvanceWorkflow: true,
+        completedSteps: [
+          "inform_employer",
+          "submit_resignation",
+          "accept_resignation",
+        ],
+      },
+      "handover_completed",
+    );
+
+    expect(apiFetch).toHaveBeenCalledWith(
+      "/dealers/employer-leaving/9/status/handover_completed",
+      { method: "PUT" },
+    );
+  });
+});
+
+describe("tab-scoped employment request loading", () => {
+  afterEach(() => {
+    resetEmploymentRequestsApiState();
+  });
+
+  it("loads only join rows in mock mode for Join tab", async () => {
+    const page = await getEmploymentRequestsPage({ type: "Join" });
+    expect(page.list.items.every((row) => row.requestType === "Join")).toBe(true);
+    expect(page.typeCounts.join).toBe(4);
+    expect(page.typeCounts.exit).toBe(0);
+  });
+
+  it("loads only exit rows in mock mode for Exit tab", async () => {
+    const page = await getEmploymentRequestsPage({ type: "Exit" });
+    expect(page.list.items.every((row) => row.requestType === "Exit")).toBe(true);
+    expect(page.typeCounts.exit).toBe(4);
+  });
+
+  it("merges cached tab counts after loading All", async () => {
+    const page = await getEmploymentRequestsPage();
+    expect(page.typeCounts.all).toBe(8);
+    expect(page.typeCounts.join).toBe(4);
+    expect(page.typeCounts.exit).toBe(4);
+    expect(page.list.items.some((row) => row.requestType === "Join")).toBe(true);
+    expect(page.list.items.some((row) => row.requestType === "Exit")).toBe(true);
+  });
+
+  it("fetches only invitations for Join tab in live mode", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    mockLiveEmploymentRequestsFetch();
+
+    const page = await getEmploymentRequestsPage({ type: "Join" });
+
+    expect(listFetchPaths()).toEqual(["/dealers/employer-invitations"]);
+    expect(page.list.items.every((row) => row.requestType === "Join")).toBe(true);
+  });
+
+  it("fetches only leaving for Exit tab in live mode", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    mockLiveEmploymentRequestsFetch();
+
+    const page = await getEmploymentRequestsPage({ type: "Exit" });
+
+    expect(listFetchPaths()).toEqual(["/dealers/employer-leaving"]);
+    expect(page.list.items.every((row) => row.requestType === "Exit")).toBe(true);
+  });
+
+  it("fetches both list endpoints for All tab in live mode", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    mockLiveEmploymentRequestsFetch();
+
+    const page = await getEmploymentRequestsPage();
+
+    expect(listFetchPaths()).toEqual([
+      "/dealers/employer-invitations",
+      "/dealers/employer-leaving",
+    ]);
+    expect(page.typeCounts.all).toBe(2);
+    expect(page.list.items).toHaveLength(2);
+  });
+});
+
+describe("live Join/Exit lists", () => {
+  afterEach(() => {
+    resetEmploymentRequestsApiState();
+  });
+
+  it("loads invitations and leaving without transfer endpoints", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    mockLiveEmploymentRequestsFetch();
+
+    const page = await getEmploymentRequestsPage();
+    expect(page.list.items.some((r) => r.requestType === "Join")).toBe(true);
+    expect(page.list.items.some((r) => r.requestType === "Exit")).toBe(true);
+    expect(
+      vi.mocked(apiFetch).mock.calls.some(([path]) =>
+        String(path).includes("/dealers/employer-transfers"),
+      ),
+    ).toBe(false);
+
+    const actions = await getEmploymentActionsPage();
+    expect(actions.list.items.some((r) => r.actionType === "New Join")).toBe(true);
+    expect(actions.list.items.some((r) => r.actionType === "Exit")).toBe(true);
+  });
+});

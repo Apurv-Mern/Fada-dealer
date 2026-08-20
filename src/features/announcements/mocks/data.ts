@@ -1,0 +1,88 @@
+import type { Announcement } from "@/features/announcements/types";
+
+export const mockAnnouncements: Announcement[] = [
+  {
+    id: "1",
+    postType: "announcement_circular",
+    title: "Q2 Company Score Policy Update",
+    messageBody:
+      "Dear Companies,\n\nPlease note the updated FADA score calculation rules effective 1 April 2026. Branch managers should review the attached circular with their teams and ensure compliance within 15 days.\n\nKey changes:\n• Attendance weightage adjusted\n• Training completion now contributes to monthly score\n• Exit clearance delays will affect company rating\n\nContact support if you have questions.",
+    targetAudience: "dealers",
+    deliveryChannels: ["in_app", "email"],
+    status: "published",
+    publishedAt: "2026-04-01T10:00:00.000Z",
+    scheduledAt: "",
+    createdAt: "2026-03-28T08:00:00.000Z",
+    updatedAt: "2026-04-01T10:00:00.000Z",
+  },
+  {
+    id: "2",
+    postType: "announcement_circular",
+    title: "Mandatory Document Verification Drive",
+    messageBody:
+      "All companies must complete pending employee document verifications by 30 April 2026. Incomplete KYC may block new join invitations.",
+    targetAudience: "members_and_dealers",
+    deliveryChannels: ["in_app", "push"],
+    status: "published",
+    publishedAt: "2026-03-20T09:30:00.000Z",
+    scheduledAt: "",
+    createdAt: "2026-03-18T12:00:00.000Z",
+    updatedAt: "2026-03-20T09:30:00.000Z",
+  },
+  {
+    id: "3",
+    postType: "announcement_circular",
+    title: "Holiday Calendar — Regional Offices",
+    messageBody:
+      "Please find the approved holiday list for Maharashtra and Gujarat regional offices for FY 2026–27. Outlets may follow local state holidays in addition.",
+    targetAudience: "dealers",
+    deliveryChannels: ["in_app"],
+    status: "published",
+    publishedAt: "2026-03-10T06:00:00.000Z",
+    scheduledAt: "",
+    createdAt: "2026-03-09T14:00:00.000Z",
+    updatedAt: "2026-03-10T06:00:00.000Z",
+  },
+  {
+    id: "4",
+    postType: "announcement_circular",
+    title: "New Employment Transfer Workflow",
+    messageBody:
+      "Transfers between outlets under the same company now require department and designation selection. Pending transfers older than 7 days will auto-expire.",
+    targetAudience: "all",
+    deliveryChannels: ["in_app", "email", "push"],
+    status: "published",
+    publishedAt: "2026-02-25T11:15:00.000Z",
+    scheduledAt: "2026-02-25T11:00:00.000Z",
+    createdAt: "2026-02-20T10:00:00.000Z",
+    updatedAt: "2026-02-25T11:15:00.000Z",
+  },
+  {
+    id: "5",
+    postType: "announcement_circular",
+    title: "Portal Maintenance Window",
+    messageBody:
+      "Company portal will undergo scheduled maintenance on Sunday 01:00–03:00 IST. Login and API calls may be unavailable during this window.",
+    targetAudience: "dealers",
+    deliveryChannels: ["in_app", "email"],
+    status: "published",
+    publishedAt: "2026-02-12T16:00:00.000Z",
+    scheduledAt: "",
+    createdAt: "2026-02-11T09:00:00.000Z",
+    updatedAt: "2026-02-12T16:00:00.000Z",
+  },
+  {
+    id: "6",
+    postType: "announcement_circular",
+    title: "Welcome to FADA Company Communications",
+    messageBody:
+      "This channel shares official circulars and announcements from FADA HQ. Bookmark Communications to stay updated.",
+    targetAudience: "dealers",
+    deliveryChannels: ["in_app"],
+    status: "published",
+    publishedAt: "2026-01-15T08:00:00.000Z",
+    scheduledAt: "",
+    createdAt: "2026-01-14T12:00:00.000Z",
+    updatedAt: "2026-01-15T08:00:00.000Z",
+  },
+];

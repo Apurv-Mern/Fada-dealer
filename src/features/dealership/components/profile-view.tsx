@@ -1,20 +1,22 @@
 "use client";
 
 import { Avatar } from "@/components/ui";
+import { BrandsReadonlyChips } from "@/features/dealership/components/brands-readonly-chips";
+import { ProfileFieldValue } from "@/features/dealership/components/profile-field-value";
 import {
   displayValue,
   type DealerProfile,
 } from "@/features/dealership/types";
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="min-w-0">
       <p className="text-xs font-medium text-[var(--color-text-muted)]">
         {label}
       </p>
-      <p className="mt-1 min-h-5 break-words text-sm font-semibold text-[var(--color-heading)]">
+      <div className="mt-1 min-h-5 break-words text-sm font-semibold text-[var(--color-heading)]">
         {value}
-      </p>
+      </div>
     </div>
   );
 }
@@ -32,19 +34,18 @@ function formatMemberSince(value: string) {
 }
 
 export function DealershipProfileView({ profile }: { profile: DealerProfile }) {
-  const address = [
+  const addressParts = [
     displayValue(profile.address),
     displayValue(profile.city),
     displayValue(profile.state),
     displayValue(profile.pinCode),
-  ]
-    .filter(Boolean)
-    .join(", ");
+  ].filter(Boolean);
+  const address = addressParts.length > 0 ? addressParts.join(", ") : "";
 
   return (
     <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
       <Avatar
-        name={displayValue(profile.name) || "Dealer"}
+        name={displayValue(profile.name) || "Company"}
         src={displayValue(profile.logoUrl) || null}
         size="xl"
         fallback="blank"
@@ -52,45 +53,65 @@ export function DealershipProfileView({ profile }: { profile: DealerProfile }) {
       />
       <div className="min-w-0 flex-1 space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Field label="Dealer Name" value={displayValue(profile.name)} />
-          <Field label="Dealer Code" value={displayValue(profile.dealerCode)} />
           <Field
-            label="Type of Dealership"
-            value={displayValue(profile.typeOfDealership)}
+            label="Company Name"
+            value={<ProfileFieldValue value={profile.name} />}
+          />
+          <Field
+            label="Company Code"
+            value={<ProfileFieldValue value={profile.dealerCode} />}
           />
           <Field
             label="Year of Establishment"
-            value={displayValue(profile.yearOfEstablishment)}
+            value={<ProfileFieldValue value={profile.yearOfEstablishment} />}
           />
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Field label="PAN Number" value={displayValue(profile.panNumber)} />
-          <Field label="GST Number" value={displayValue(profile.gstNumber)} />
+          <Field
+            label="PAN Number"
+            value={<ProfileFieldValue value={profile.panNumber} />}
+          />
+          <Field
+            label="GST Number"
+            value={<ProfileFieldValue value={profile.gstNumber} />}
+          />
           <Field
             label="FADA Membership ID"
-            value={displayValue(profile.fadaMembershipId)}
+            value={<ProfileFieldValue value={profile.fadaMembershipId} />}
           />
           <Field
             label="FADA Member Since"
-            value={formatMemberSince(profile.fadaMemberSince)}
+            value={
+              <ProfileFieldValue
+                value={formatMemberSince(profile.fadaMemberSince)}
+              />
+            }
           />
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <Field label="Registered Address" value={address} />
-          <Field label="Primary Contact" value="" />
-          <Field label="Mobile Number" value={displayValue(profile.phone)} />
-          <Field label="Email ID" value={displayValue(profile.email)} />
+          <Field
+            label="Registered Address"
+            value={<ProfileFieldValue value={address} />}
+          />
+          <Field
+            label="Mobile Number"
+            value={<ProfileFieldValue value={profile.phone} />}
+          />
+          <Field
+            label="Email ID"
+            value={<ProfileFieldValue value={profile.email} />}
+          />
+          <Field
+            label="Brands Represented"
+            value={<BrandsReadonlyChips brandsRepresented={profile.brandsRepresented} />}
+          />
           <Field
             label="Total Branches"
-            value={
-              profile.totalOutlets != null ? String(profile.totalOutlets) : ""
-            }
+            value={String(profile.totalOutlets ?? 0)}
           />
           <Field
             label="Total Employees"
-            value={
-              profile.allEmployees != null ? String(profile.allEmployees) : ""
-            }
+            value={String(profile.allEmployees ?? 0)}
           />
         </div>
       </div>

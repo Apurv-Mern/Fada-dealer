@@ -4,7 +4,9 @@ import { useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 
 import { isLoggedIn, subscribeAuthStore } from "@/features/auth/token-store";
-import { routes } from "@/config/navigation";
+import { resolvePortalDestination } from "@/features/auth/resolve-portal-destination";
+import { toast } from "@/components/ui/toast";
+import { messageFromApiError } from "@/lib/api/errors";
 
 /** Redirects authenticated users away from auth pages (no skeleton flash). */
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -16,9 +18,24 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    if (loggedIn) {
-      router.replace(routes.branches);
-    }
+    if (!loggedIn) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const dest = await resolvePortalDestination();
+        if (!cancelled) router.replace(dest);
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(
+            messageFromApiError(err) ||
+              "Couldn't verify company status. Please try again.",
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [loggedIn, router]);
 
   return children;

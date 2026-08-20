@@ -19,7 +19,7 @@ export function AuthBrandPanel() {
             FADA <span className="text-[var(--color-primary)]">ID</span>
           </p>
           <p className="text-[10px] font-medium tracking-wider text-white/60 uppercase">
-            Dealer Portal
+            Company Portal
           </p>
         </div>
       </Link>

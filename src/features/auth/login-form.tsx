@@ -9,6 +9,7 @@ import {
   Button,
   Checkbox,
   Input,
+  OtpInput,
   PasswordInput,
   toast,
 } from "@/components/ui";
@@ -19,12 +20,14 @@ import {
   dealerVerifyLoginOtp,
   toAuthErrorMessage,
 } from "@/features/auth/client-auth";
+import { resolvePortalDestination } from "@/features/auth/resolve-portal-destination";
 import {
   loginOtpRequestSchema,
+  loginOtpVerifySchema,
   loginSchema,
-  otpSchema,
 } from "@/features/auth/schemas";
 import { routes } from "@/config/navigation";
+import { messageFromApiError } from "@/lib/api/errors";
 
 type LoginMode = "password" | "otp";
 
@@ -49,9 +52,17 @@ export function LoginForm() {
     }
   }, [searchParams]);
 
-  function goToPortal() {
+  async function goToPortal() {
     const next = searchParams.get("next");
-    router.replace(next && next.startsWith("/") ? next : routes.branches);
+    try {
+      const dest = await resolvePortalDestination(next);
+      router.replace(dest);
+    } catch (err) {
+      toast.error(
+        messageFromApiError(err) ||
+          "Couldn't verify company status. Please try again.",
+      );
+    }
   }
 
   async function handlePasswordLogin(e: React.FormEvent) {
@@ -86,7 +97,7 @@ export function LoginForm() {
         }
         return;
       }
-      goToPortal();
+      await goToPortal();
     } catch (err) {
       toast.error(toAuthErrorMessage(err, "Login failed"));
     } finally {
@@ -121,7 +132,7 @@ export function LoginForm() {
 
   async function handleVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
-    const parsed = otpSchema.safeParse({ email, otp });
+    const parsed = loginOtpVerifySchema.safeParse({ email, otp });
     if (!parsed.success) {
       const nextErrors: typeof errors = {};
       for (const issue of parsed.error.issues) {
@@ -138,7 +149,7 @@ export function LoginForm() {
 
     try {
       await dealerVerifyLoginOtp(parsed.data);
-      goToPortal();
+      await goToPortal();
     } catch (err) {
       toast.error(toAuthErrorMessage(err, "OTP verification failed"));
     } finally {
@@ -157,10 +168,10 @@ export function LoginForm() {
   return (
     <AuthCard
       title="Welcome back"
-      description="Log in to manage your dealership on FADA ID."
+      description="Log in to manage your company on FADA ID."
       footer={
         <>
-          New dealership?{" "}
+          New company?{" "}
           <Link
             href={routes.register}
             className="font-semibold text-[var(--color-primary)] hover:underline"
@@ -256,15 +267,14 @@ export function LoginForm() {
             disabled={otpSent}
           />
           {otpSent ? (
-            <Input
+            <OtpInput
               label="OTP"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder="Enter OTP"
               value={otp}
-              onChange={(e) => setOtp(e.target.value)}
+              onChange={setOtp}
               error={errors.otp}
+              helperText="Enter the 4-digit code sent to your email"
               required
+              autoFocus
             />
           ) : null}
 

@@ -5,6 +5,8 @@ export type PageSkeletonProps = {
   stats?: number;
   showTable?: boolean;
   showCharts?: boolean;
+  /** Skip title/actions placeholder when a real header is already rendered. */
+  hideHeader?: boolean;
   className?: string;
 };
 
@@ -12,17 +14,20 @@ export function PageSkeleton({
   stats = 4,
   showTable = true,
   showCharts = false,
+  hideHeader = false,
   className,
 }: PageSkeletonProps) {
   return (
     <div className={cn(className)} aria-busy aria-label="Loading">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-56" />
-          <Skeleton className="h-4 w-80 max-w-full" />
+      {!hideHeader ? (
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-56" />
+            <Skeleton className="h-4 w-80 max-w-full" />
+          </div>
+          <Skeleton className="h-10 w-36" />
         </div>
-        <Skeleton className="h-10 w-36" />
-      </div>
+      ) : null}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: stats }).map((_, i) => (

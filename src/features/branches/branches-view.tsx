@@ -11,6 +11,32 @@ import { BranchesOverviewTable } from "@/features/branches/components/branches-o
 import { BranchesStats } from "@/features/branches/components/branches-stats";
 import type { Branch, BranchDashboard } from "@/features/branches/types";
 
+export type BranchesHeaderProps = {
+  /** When true, show Add New Branch (default for full dashboard view). */
+  showAddBranch?: boolean;
+  onAddBranch?: () => void;
+};
+
+export function BranchesHeader({
+  showAddBranch = false,
+  onAddBranch,
+}: BranchesHeaderProps) {
+  return (
+    <PageHeader
+      title="Branch Management"
+      description="Configure company branches and monitor workforce distribution."
+      actions={
+        showAddBranch ? (
+          <Button onClick={onAddBranch} className="w-full sm:w-auto">
+            <Plus />
+            Add New Branch
+          </Button>
+        ) : null
+      }
+    />
+  );
+}
+
 export type BranchesViewProps = {
   dashboard: BranchDashboard;
   onRefresh?: () => void;
@@ -31,21 +57,12 @@ export function BranchesView({ dashboard, onRefresh }: BranchesViewProps) {
 
   return (
     <div>
-      <PageHeader
-        title="Branch Management"
-        description="Configure dealership branches and monitor workforce distribution."
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setAddOpen(true);
-            }}
-            className="w-full sm:w-auto"
-          >
-            <Plus />
-            Add New Branch
-          </Button>
-        }
+      <BranchesHeader
+        showAddBranch
+        onAddBranch={() => {
+          setEditing(null);
+          setAddOpen(true);
+        }}
       />
 
       <BranchesStats stats={stats} />

@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FADA Dealer Portal",
-  description: "Dealership employment lifecycle management for FADA ID",
+  title: "FADA Company Portal",
+  description: "Company employment lifecycle management for FADA ID",
 };
 
 export default function RootLayout({

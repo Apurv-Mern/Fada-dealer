@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-import { BRANCH_STATUSES, BRANCH_TYPES } from "@/features/branches/types";
+import { BRANCH_STATUSES } from "@/features/branches/types";
 
 export const branchSchema = z.object({
   id: z.string(),
   name: z.string(),
   location: z.string(),
-  type: z.enum(BRANCH_TYPES),
+  type: z.string(),
   employees: z.number(),
   active: z.number(),
   fadaScore: z.number(),

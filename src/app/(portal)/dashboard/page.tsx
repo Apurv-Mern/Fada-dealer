@@ -18,7 +18,7 @@ export default function DashboardPage() {
     getProfile,
     () => null,
   );
-  const userName = profile?.name?.trim() || "Dealer";
+  const userName = profile?.name?.trim() || "Company";
 
   const loader = useCallback(() => getDashboardSummary(), []);
   const { data, error, loading, retry } = useAsyncResource({
