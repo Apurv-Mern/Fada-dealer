@@ -7,7 +7,7 @@ export {
   isProxyMode,
   isRealDealerAuthEnabled,
 } from "./client";
-export { toDisplayableFileUrl } from "./file-url";
+export { toDisplayableFileUrl, getDisplayableFileUrlCandidates } from "./file-url";
 export {
   ApiError,
   isUnauthorizedError,

@@ -71,9 +71,7 @@ describe("ProfileImageUploader", () => {
     ).toBeTruthy();
   });
 
-  it("rewrites API image URLs to same-origin /api when proxy mode is on", () => {
-    vi.stubEnv("NEXT_PUBLIC_USE_PROXY", "true");
-
+  it("prefers same-origin /api image src when page origin differs from API", () => {
     render(
       <ProfileImageUploader
         name="Test Motors"
@@ -100,7 +98,7 @@ describe("ProfileImageUploader", () => {
     expect(uploadDealerProfilePicture).not.toHaveBeenCalled();
   });
 
-  it("uploads and shows the new image on success", async () => {
+  it("uploads and shows the new image on success via /api src", async () => {
     const onUploaded = vi.fn();
     vi.mocked(uploadDealerProfilePicture).mockResolvedValue(
       "https://api.fadaid.com/uploads/new.png",
@@ -123,27 +121,7 @@ describe("ProfileImageUploader", () => {
     });
 
     const img = screen.getByAltText("Test Motors") as HTMLImageElement;
-    expect(img.getAttribute("src")).toBe(
-      "https://api.fadaid.com/uploads/new.png",
-    );
-  });
-
-  it("shows proxied preview src after upload when proxy mode is on", async () => {
-    vi.stubEnv("NEXT_PUBLIC_USE_PROXY", "true");
-    vi.mocked(uploadDealerProfilePicture).mockResolvedValue(
-      "https://api.fadaid.com/uploads/new.png",
-    );
-
-    render(<ProfileImageUploader name="Test Motors" logoUrl="" />);
-    selectFile(new File(["img"], "logo.png", { type: "image/png" }));
-
-    await waitFor(() => {
-      expect(
-        (screen.getByAltText("Test Motors") as HTMLImageElement).getAttribute(
-          "src",
-        ),
-      ).toBe("/api/uploads/new.png");
-    });
+    expect(img.getAttribute("src")).toBe("/api/uploads/new.png");
   });
 
   it("keeps the previous image when upload fails", async () => {
@@ -165,9 +143,7 @@ describe("ProfileImageUploader", () => {
     });
 
     const img = screen.getByAltText("Test Motors") as HTMLImageElement;
-    expect(img.getAttribute("src")).toBe(
-      "https://api.fadaid.com/uploads/old.png",
-    );
+    expect(img.getAttribute("src")).toBe("/api/uploads/old.png");
   });
 
   it("disables the picker while uploading", async () => {
@@ -197,7 +173,7 @@ describe("ProfileImageUploader", () => {
     });
   });
 
-  it("falls back to Upload Image when the image fails to load", () => {
+  it("tries absolute URL after proxied src fails, then empty state", () => {
     render(
       <ProfileImageUploader
         name="Test Motors"
@@ -205,7 +181,16 @@ describe("ProfileImageUploader", () => {
       />,
     );
 
-    const img = screen.getByAltText("Test Motors");
+    let img = screen.getByAltText("Test Motors") as HTMLImageElement;
+    expect(img.getAttribute("src")).toBe("/api/uploads/broken.png");
+
+    fireEvent.error(img);
+
+    img = screen.getByAltText("Test Motors") as HTMLImageElement;
+    expect(img.getAttribute("src")).toBe(
+      "https://api.fadaid.com/uploads/broken.png",
+    );
+
     fireEvent.error(img);
 
     expect(screen.getByText("Upload Image")).toBeTruthy();
@@ -226,7 +211,7 @@ describe("ProfileImageUploader", () => {
       (screen.getByAltText("Test Motors") as HTMLImageElement).getAttribute(
         "src",
       ),
-    ).toBe("https://api.fadaid.com/uploads/old.png");
+    ).toBe("/api/uploads/old.png");
 
     rerender(
       <ProfileImageUploader
@@ -239,7 +224,7 @@ describe("ProfileImageUploader", () => {
       (screen.getByAltText("Test Motors") as HTMLImageElement).getAttribute(
         "src",
       ),
-    ).toBe("https://api.fadaid.com/uploads/1787304300283-872733348.png");
+    ).toBe("/api/uploads/1787304300283-872733348.png");
   });
 
   it("shows empty state when logoUrl is cleared", () => {

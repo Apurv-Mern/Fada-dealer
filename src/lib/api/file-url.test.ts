@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { toDisplayableFileUrl } from "@/lib/api/file-url";
+import {
+  getDisplayableFileUrlCandidates,
+  toDisplayableFileUrl,
+} from "@/lib/api/file-url";
 
-describe("toDisplayableFileUrl", () => {
+describe("toDisplayableFileUrl / getDisplayableFileUrlCandidates", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
@@ -10,18 +13,28 @@ describe("toDisplayableFileUrl", () => {
   it("returns empty for blank values", () => {
     expect(toDisplayableFileUrl("")).toBe("");
     expect(toDisplayableFileUrl(null)).toBe("");
-    expect(toDisplayableFileUrl(undefined)).toBe("");
+    expect(getDisplayableFileUrlCandidates(undefined)).toEqual([]);
   });
 
-  it("leaves URLs unchanged when proxy mode is off", () => {
+  it("prefers /api when page origin differs from API even if proxy mode is off", () => {
     vi.stubEnv("NEXT_PUBLIC_USE_PROXY", "false");
     vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.fadaid.com");
 
+    // jsdom origin is http://localhost:3000 — not the API host
     expect(
       toDisplayableFileUrl(
         "https://api.fadaid.com/uploads/1787304300283-872733348.png",
       ),
-    ).toBe("https://api.fadaid.com/uploads/1787304300283-872733348.png");
+    ).toBe("/api/uploads/1787304300283-872733348.png");
+
+    expect(
+      getDisplayableFileUrlCandidates(
+        "https://api.fadaid.com/uploads/1787304300283-872733348.png",
+      ),
+    ).toEqual([
+      "/api/uploads/1787304300283-872733348.png",
+      "https://api.fadaid.com/uploads/1787304300283-872733348.png",
+    ]);
   });
 
   it("rewrites API-hosted URLs to /api when proxy mode is on", () => {
@@ -40,9 +53,7 @@ describe("toDisplayableFileUrl", () => {
     vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.fadaid.com");
 
     expect(
-      toDisplayableFileUrl(
-        "https://api.fadaid.com/uploads/pic.png?v=1#top",
-      ),
+      toDisplayableFileUrl("https://api.fadaid.com/uploads/pic.png?v=1#top"),
     ).toBe("/api/uploads/pic.png?v=1#top");
   });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, Upload } from "lucide-react";
 
 import { toast } from "@/components/ui/toast";
@@ -11,7 +11,7 @@ import {
   validateProfileImage,
 } from "@/features/dealership/validate-profile-image";
 import { displayValue } from "@/features/dealership/types";
-import { toDisplayableFileUrl } from "@/lib/api";
+import { getDisplayableFileUrlCandidates } from "@/lib/api";
 import { cn } from "@/lib/utils/cn";
 
 export function ProfileImageUploader({
@@ -26,22 +26,29 @@ export function ProfileImageUploader({
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
+  const [candidateIndex, setCandidateIndex] = useState(0);
 
   const displayName = displayValue(name) || "Company";
-  const propUrl = toDisplayableFileUrl(displayValue(logoUrl)) || null;
-  const previewDisplayUrl = previewUrl
-    ? toDisplayableFileUrl(previewUrl) || previewUrl
-    : null;
-  const candidateUrl = previewDisplayUrl ?? propUrl;
+  const sourceUrl = previewUrl ?? displayValue(logoUrl);
+  const candidates = useMemo(
+    () => getDisplayableFileUrlCandidates(sourceUrl),
+    [sourceUrl],
+  );
   const currentUrl =
-    candidateUrl && brokenUrl === candidateUrl ? null : candidateUrl;
+    candidateIndex >= 0 && candidateIndex < candidates.length
+      ? candidates[candidateIndex]
+      : null;
   const hasImage = Boolean(currentUrl);
 
-  // After refresh, prefer the server URL and drop any temporary preview.
+  // After refresh / source change, restart from the preferred candidate.
+  useEffect(() => {
+    setCandidateIndex(0);
+  }, [sourceUrl]);
+
+  // Drop temporary preview when server logoUrl updates after refresh.
   useEffect(() => {
     setPreviewUrl(null);
-    setBrokenUrl(null);
+    setCandidateIndex(0);
   }, [logoUrl]);
 
   function openPicker() {
@@ -63,7 +70,7 @@ export function ProfileImageUploader({
     setUploading(true);
     try {
       const url = await uploadDealerProfilePicture(file);
-      setBrokenUrl(null);
+      setCandidateIndex(0);
       setPreviewUrl(url);
       toast.success("Profile image updated");
       onUploaded?.();
@@ -106,12 +113,14 @@ export function ProfileImageUploader({
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
+            key={currentUrl}
             src={currentUrl!}
             alt={displayName}
             className="size-full object-cover"
             onError={() => {
-              if (currentUrl) setBrokenUrl(currentUrl);
-              setPreviewUrl(null);
+              setCandidateIndex((index) =>
+                index + 1 < candidates.length ? index + 1 : candidates.length,
+              );
             }}
           />
         ) : (

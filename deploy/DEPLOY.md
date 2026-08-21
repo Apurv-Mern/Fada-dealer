@@ -53,12 +53,19 @@ sudo ln -sf /etc/nginx/sites-available/dealer /etc/nginx/sites-enabled/dealer
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-The sample config includes `location /api/` → `https://api.fadaid.com/` (required when `NEXT_PUBLIC_USE_PROXY=true`).
+The sample config includes `location /api/` → `https://api.fadaid.com/` (required when `NEXT_PUBLIC_USE_PROXY=true`, and for Business Profile images which load via `/api/uploads/...`).
 
 TLS (optional):
 
 ```bash
 sudo certbot --nginx -d dealer.fadaid.com
+```
+
+After Certbot, **copy `location /api/` into the HTTPS server block** as well. Without it, `https://dealer.fadaid.com/api/uploads/...` returns HTML 404 and the profile circle stays empty. Verify with:
+
+```bash
+curl -sI https://dealer.fadaid.com/api/uploads/<file>.png
+# expect: HTTP 200 and Content-Type: image/png
 ```
 
 ## 4. Local preview of static build
