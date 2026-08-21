@@ -5,7 +5,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProfileImageUploader } from "@/features/dealership/components/profile-image-uploader";
 import { uploadDealerProfilePicture } from "@/features/dealership/api";
@@ -36,8 +36,14 @@ function selectFile(file: File) {
 }
 
 describe("ProfileImageUploader", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_USE_PROXY", "false");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.fadaid.com");
+  });
+
   afterEach(() => {
     cleanup();
+    vi.unstubAllEnvs();
     vi.mocked(uploadDealerProfilePicture).mockReset();
     vi.mocked(toast.success).mockReset();
     vi.mocked(toast.error).mockReset();
@@ -63,6 +69,23 @@ describe("ProfileImageUploader", () => {
     expect(
       screen.getByRole("button", { name: /change test motors profile image/i }),
     ).toBeTruthy();
+  });
+
+  it("rewrites API image URLs to same-origin /api when proxy mode is on", () => {
+    vi.stubEnv("NEXT_PUBLIC_USE_PROXY", "true");
+
+    render(
+      <ProfileImageUploader
+        name="Test Motors"
+        logoUrl="https://api.fadaid.com/uploads/1787304300283-872733348.png"
+      />,
+    );
+
+    expect(
+      (screen.getByAltText("Test Motors") as HTMLImageElement).getAttribute(
+        "src",
+      ),
+    ).toBe("/api/uploads/1787304300283-872733348.png");
   });
 
   it("rejects invalid files before uploading", async () => {
@@ -103,6 +126,24 @@ describe("ProfileImageUploader", () => {
     expect(img.getAttribute("src")).toBe(
       "https://api.fadaid.com/uploads/new.png",
     );
+  });
+
+  it("shows proxied preview src after upload when proxy mode is on", async () => {
+    vi.stubEnv("NEXT_PUBLIC_USE_PROXY", "true");
+    vi.mocked(uploadDealerProfilePicture).mockResolvedValue(
+      "https://api.fadaid.com/uploads/new.png",
+    );
+
+    render(<ProfileImageUploader name="Test Motors" logoUrl="" />);
+    selectFile(new File(["img"], "logo.png", { type: "image/png" }));
+
+    await waitFor(() => {
+      expect(
+        (screen.getByAltText("Test Motors") as HTMLImageElement).getAttribute(
+          "src",
+        ),
+      ).toBe("/api/uploads/new.png");
+    });
   });
 
   it("keeps the previous image when upload fails", async () => {
@@ -154,5 +195,63 @@ describe("ProfileImageUploader", () => {
     await waitFor(() => {
       expect(button).toHaveProperty("disabled", false);
     });
+  });
+
+  it("falls back to Upload Image when the image fails to load", () => {
+    render(
+      <ProfileImageUploader
+        name="Test Motors"
+        logoUrl="https://api.fadaid.com/uploads/broken.png"
+      />,
+    );
+
+    const img = screen.getByAltText("Test Motors");
+    fireEvent.error(img);
+
+    expect(screen.getByText("Upload Image")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /upload test motors profile image/i }),
+    ).toBeTruthy();
+  });
+
+  it("syncs the circle when logoUrl updates after refresh", () => {
+    const { rerender } = render(
+      <ProfileImageUploader
+        name="Test Motors"
+        logoUrl="https://api.fadaid.com/uploads/old.png"
+      />,
+    );
+
+    expect(
+      (screen.getByAltText("Test Motors") as HTMLImageElement).getAttribute(
+        "src",
+      ),
+    ).toBe("https://api.fadaid.com/uploads/old.png");
+
+    rerender(
+      <ProfileImageUploader
+        name="Test Motors"
+        logoUrl="https://api.fadaid.com/uploads/1787304300283-872733348.png"
+      />,
+    );
+
+    expect(
+      (screen.getByAltText("Test Motors") as HTMLImageElement).getAttribute(
+        "src",
+      ),
+    ).toBe("https://api.fadaid.com/uploads/1787304300283-872733348.png");
+  });
+
+  it("shows empty state when logoUrl is cleared", () => {
+    const { rerender } = render(
+      <ProfileImageUploader
+        name="Test Motors"
+        logoUrl="https://api.fadaid.com/uploads/old.png"
+      />,
+    );
+
+    rerender(<ProfileImageUploader name="Test Motors" logoUrl="" />);
+
+    expect(screen.getByText("Upload Image")).toBeTruthy();
   });
 });

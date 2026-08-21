@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, Upload } from "lucide-react";
 
 import { toast } from "@/components/ui/toast";
@@ -11,6 +11,7 @@ import {
   validateProfileImage,
 } from "@/features/dealership/validate-profile-image";
 import { displayValue } from "@/features/dealership/types";
+import { toDisplayableFileUrl } from "@/lib/api";
 import { cn } from "@/lib/utils/cn";
 
 export function ProfileImageUploader({
@@ -25,10 +26,23 @@ export function ProfileImageUploader({
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
 
   const displayName = displayValue(name) || "Company";
-  const currentUrl = previewUrl ?? (displayValue(logoUrl) || null);
+  const propUrl = toDisplayableFileUrl(displayValue(logoUrl)) || null;
+  const previewDisplayUrl = previewUrl
+    ? toDisplayableFileUrl(previewUrl) || previewUrl
+    : null;
+  const candidateUrl = previewDisplayUrl ?? propUrl;
+  const currentUrl =
+    candidateUrl && brokenUrl === candidateUrl ? null : candidateUrl;
   const hasImage = Boolean(currentUrl);
+
+  // After refresh, prefer the server URL and drop any temporary preview.
+  useEffect(() => {
+    setPreviewUrl(null);
+    setBrokenUrl(null);
+  }, [logoUrl]);
 
   function openPicker() {
     if (uploading) return;
@@ -49,6 +63,7 @@ export function ProfileImageUploader({
     setUploading(true);
     try {
       const url = await uploadDealerProfilePicture(file);
+      setBrokenUrl(null);
       setPreviewUrl(url);
       toast.success("Profile image updated");
       onUploaded?.();
@@ -94,6 +109,10 @@ export function ProfileImageUploader({
             src={currentUrl!}
             alt={displayName}
             className="size-full object-cover"
+            onError={() => {
+              if (currentUrl) setBrokenUrl(currentUrl);
+              setPreviewUrl(null);
+            }}
           />
         ) : (
           <span className="flex flex-col items-center gap-1 px-2 text-center">
@@ -108,31 +127,19 @@ export function ProfileImageUploader({
         )}
 
         {hasImage && !uploading ? (
-          <>
-            <span
-              className={cn(
-                "absolute inset-0 flex flex-col items-center justify-center gap-0.5",
-                "bg-black/55 text-white opacity-0 transition-opacity",
-                "group-hover:opacity-100 group-focus-visible:opacity-100",
-              )}
-              aria-hidden
-            >
-              <Camera className="size-4" />
-              <span className="text-[10px] font-semibold leading-tight">
-                Change Image
-              </span>
+          <span
+            className={cn(
+              "absolute inset-0 flex flex-col items-center justify-center gap-0.5",
+              "bg-black/55 text-white opacity-0 transition-opacity",
+              "group-hover:opacity-100 group-focus-visible:opacity-100",
+            )}
+            aria-hidden
+          >
+            <Camera className="size-4" />
+            <span className="text-[10px] font-semibold leading-tight">
+              Change Image
             </span>
-            <span
-              className={cn(
-                "absolute bottom-1 right-1 inline-flex size-6 items-center justify-center",
-                "rounded-full bg-[var(--color-primary)] text-[var(--color-primary-fg)] shadow-sm",
-                "group-hover:opacity-0 group-focus-visible:opacity-0",
-              )}
-              aria-hidden
-            >
-              <Camera className="size-3" />
-            </span>
-          </>
+          </span>
         ) : null}
 
         {uploading ? (

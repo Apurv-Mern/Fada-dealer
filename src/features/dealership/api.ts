@@ -30,6 +30,18 @@ function readString(record: Record<string, unknown>, key: string): string {
   return typeof value === "string" ? value : value != null ? String(value) : "";
 }
 
+/** Image URL for display; empty when missing or non-displayable. */
+function normalizeImageUrl(value: unknown): string {
+  if (value == null) return "";
+  const text = String(value).trim();
+  if (!text || text === "null" || text === "undefined") return "";
+  return text;
+}
+
+function readImageUrl(record: Record<string, unknown>, key: string): string {
+  return normalizeImageUrl(record[key]);
+}
+
 function readNumber(record: Record<string, unknown>, key: string): number {
   const value = record[key];
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -262,16 +274,16 @@ export function mapDealerProfile(raw: unknown): DealerProfile {
       readString(record, "primaryContactPhone") ||
       readString(profile, "primaryContactPhone"),
     logoUrl:
-      readString(record, "logoUrl") ||
-      readString(record, "avatarUrl") ||
-      readString(record, "profileImage") ||
-      readString(record, "profilePicture") ||
-      readString(record, "fileUrl") ||
-      readString(profile, "logoUrl") ||
-      readString(profile, "avatarUrl") ||
-      readString(profile, "profileImage") ||
-      readString(profile, "profilePicture") ||
-      readString(profile, "fileUrl"),
+      readImageUrl(record, "profilePicture") ||
+      readImageUrl(record, "logoUrl") ||
+      readImageUrl(record, "avatarUrl") ||
+      readImageUrl(record, "profileImage") ||
+      readImageUrl(record, "fileUrl") ||
+      readImageUrl(profile, "profilePicture") ||
+      readImageUrl(profile, "logoUrl") ||
+      readImageUrl(profile, "avatarUrl") ||
+      readImageUrl(profile, "profileImage") ||
+      readImageUrl(profile, "fileUrl"),
   };
 }
 
@@ -370,7 +382,7 @@ function brandNamesFromIds(ids: number[]): string {
  * Upload a profile image via `POST /file-upload`, then persist the URL.
  *
  * Persist contract:
- * `PUT /dealer/upload-profile-picture` with `{ fileUrl: url }`.
+ * `PUT /dealers/user/upload-profile-picture` with `{ fileUrl: url }`.
  */
 export async function uploadDealerProfilePicture(file: File): Promise<string> {
   if (isMockMode()) {
@@ -384,7 +396,7 @@ export async function uploadDealerProfilePicture(file: File): Promise<string> {
   }
 
   const uploadedUrl = await apiUploadFile(file);
-  const body = await apiFetch<unknown>("/dealer/upload-profile-picture", {
+  const body = await apiFetch<unknown>("/dealers/user/upload-profile-picture", {
     method: "PUT",
     body: { fileUrl: uploadedUrl },
   });

@@ -236,6 +236,65 @@ describe("mapDealerProfile", () => {
     ).toBe("https://api.fadaid.com/uploads/nested.png");
   });
 
+  it("prefers top-level profilePicture over logoUrl fallbacks", () => {
+    expect(
+      mapDealerProfile({
+        profilePicture: "https://api.fadaid.com/uploads/primary.png",
+        logoUrl: "https://api.fadaid.com/uploads/secondary.png",
+      }).logoUrl,
+    ).toBe("https://api.fadaid.com/uploads/primary.png");
+  });
+
+  it("maps live GET profile payload profilePicture", () => {
+    const profile = mapDealerProfile({
+      id: 16,
+      name: "Abhishek dev",
+      email: "devmail@gmail.com",
+      phone: "98765432145",
+      dealerCode: "98769875",
+      brands: "Audi, MG",
+      status: "approved",
+      isActive: true,
+      profilePicture:
+        "https://api.fadaid.com/uploads/1787304300283-872733348.png",
+      totalOutlets: 5,
+      allEmployees: 12,
+      profile: {
+        id: 3,
+        dealerId: 16,
+        typeOfDealership: "dev mail",
+        yearOfEstablishment: "2026",
+        panNumber: "iicps9654j",
+        fadaMembershipId: "asa",
+        fadaMemberSince: "2026-08-04",
+      },
+      location: {
+        id: 2,
+        dealerId: 16,
+        pinCode: "303908",
+        city: "jaipur",
+        state: "Rajasthan",
+        country: "India",
+        gstNumber: "08AAOCS1246P1Z9",
+        address: "Update new address",
+      },
+    });
+
+    expect(profile.logoUrl).toBe(
+      "https://api.fadaid.com/uploads/1787304300283-872733348.png",
+    );
+    expect(profile.name).toBe("Abhishek dev");
+    expect(profile.city).toBe("jaipur");
+  });
+
+  it("treats nullish profilePicture values as empty", () => {
+    expect(mapDealerProfile({ profilePicture: null }).logoUrl).toBe("");
+    expect(mapDealerProfile({ profilePicture: "" }).logoUrl).toBe("");
+    expect(mapDealerProfile({ profilePicture: "null" }).logoUrl).toBe("");
+    expect(mapDealerProfile({ profilePicture: "undefined" }).logoUrl).toBe("");
+    expect(mapDealerProfile({}).logoUrl).toBe("");
+  });
+
   it("maps fileUrl onto logoUrl", () => {
     expect(
       mapDealerProfile({
@@ -266,7 +325,7 @@ describe("uploadDealerProfilePicture", () => {
     const url = await uploadDealerProfilePicture(file);
 
     expect(apiUploadFile).toHaveBeenCalledWith(file);
-    expect(apiFetch).toHaveBeenCalledWith("/dealer/upload-profile-picture", {
+    expect(apiFetch).toHaveBeenCalledWith("/dealers/user/upload-profile-picture", {
       method: "PUT",
       body: { fileUrl: "https://api.fadaid.com/uploads/new-logo.png" },
     });
