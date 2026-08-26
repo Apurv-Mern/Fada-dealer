@@ -171,7 +171,7 @@ export function EmployeesTable({
       },
       {
         id: "branch",
-        header: "Branch",
+        header: "Outlet",
         headerClassName: "w-[12%]",
         className: "max-w-0 overflow-hidden",
         cell: (row) => (

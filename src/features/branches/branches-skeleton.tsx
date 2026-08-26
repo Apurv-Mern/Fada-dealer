@@ -7,7 +7,7 @@ export type BranchesSkeletonProps = {
 
 export function BranchesSkeleton({ hideHeader = false }: BranchesSkeletonProps) {
   return (
-    <div aria-busy aria-label="Loading branches">
+    <div aria-busy aria-label="Loading outlets">
       <PageSkeleton stats={4} showTable showCharts hideHeader={hideHeader} />
     </div>
   );

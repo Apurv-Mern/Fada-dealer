@@ -21,8 +21,15 @@ import {
   mapInvitationSteps,
   mapLeavingDetail,
   mapLeavingSteps,
+  resolveSendInvitationActor,
+  unwrapDetailRecord,
 } from "@/features/employment-requests/api";
-import { nextJoinInvitationStatus } from "@/features/employment-requests/joining-steps";
+import {
+  isDealerActor,
+  isEmployeeOwnedJoinStep,
+  nextDealerJoinStatus,
+  nextJoinInvitationStatus,
+} from "@/features/employment-requests/joining-steps";
 import { nextLeavingExitStatus } from "@/features/employment-requests/leaving-steps";
 import {
   mockEmploymentRequests,
@@ -185,6 +192,53 @@ describe("mapLeavingDetail", () => {
     expect(row.history).toHaveLength(2);
     expect(row.canAdvanceWorkflow).toBe(true);
   });
+
+  it("maps live leaving payload with assignment department and designation", () => {
+    const row = mapLeavingDetail({
+      id: 1,
+      employeeAssignmentId: 40,
+      employeeId: 30,
+      dealerId: 16,
+      outletId: 1,
+      reason: "Hey i am leaving this",
+      initiatedBy: "employee",
+      status: "accepted",
+      createdAt: "2026-08-19T07:30:02.000Z",
+      employee: {
+        id: 30,
+        fadaId: "FADA-2026-000015",
+        name: "Apurv Gupta",
+        phone: "+91 9057618569",
+      },
+      branch: { id: 1, name: "test101" },
+      assignment: {
+        department: { id: 2, name: "dev" },
+        designation: { id: 5, name: "SD2" },
+      },
+      statuses: [
+        {
+          id: 1,
+          status: "inform_employer",
+          actionUserBy: "employee",
+          createdAt: "2026-08-19T07:30:02.000Z",
+        },
+        {
+          id: 2,
+          status: "accept_resignation",
+          actionUserBy: "dealer",
+          createdAt: "2026-08-19T07:30:36.000Z",
+        },
+      ],
+    });
+
+    expect(row.fadaId).toBe("FADA-2026-000015");
+    expect(row.branchName).toBe("test101");
+    expect(row.departmentName).toBe("dev");
+    expect(row.designationName).toBe("SD2");
+    expect(row.reason).toBe("Hey i am leaving this");
+    expect(row.requestedAtDateTime).toMatch(/2026/);
+    expect(row.acceptedAt).toMatch(/2026/);
+  });
 });
 
 describe("mapLeavingSteps", () => {
@@ -255,6 +309,47 @@ describe("nextJoinInvitationStatus", () => {
   });
 });
 
+describe("nextDealerJoinStatus", () => {
+  it("blocks on accept_invitation when dealer sent the invitation", () => {
+    expect(
+      nextDealerJoinStatus(["send_invitation"], true),
+    ).toBeNull();
+    expect(isEmployeeOwnedJoinStep("accept_invitation", true)).toBe(true);
+  });
+
+  it("allows accept_invitation when employee sent the invitation", () => {
+    expect(
+      nextDealerJoinStatus(["send_invitation"], false),
+    ).toBe("accept_invitation");
+    expect(isEmployeeOwnedJoinStep("accept_invitation", false)).toBe(false);
+  });
+
+  it("always blocks share_details for dealer", () => {
+    expect(
+      nextDealerJoinStatus(
+        ["send_invitation", "accept_invitation"],
+        false,
+      ),
+    ).toBeNull();
+    expect(isEmployeeOwnedJoinStep("share_details", false)).toBe(true);
+  });
+
+  it("returns employer_verification after share_details", () => {
+    expect(
+      nextDealerJoinStatus(
+        ["send_invitation", "accept_invitation", "share_details"],
+        true,
+      ),
+    ).toBe("employer_verification");
+  });
+
+  it("isDealerActor only matches dealer", () => {
+    expect(isDealerActor("dealer")).toBe(true);
+    expect(isDealerActor("employee")).toBe(false);
+    expect(isDealerActor(undefined)).toBe(false);
+  });
+});
+
 describe("collectCompletedJoinSteps", () => {
   it("normalizes history slugs and fills earlier workflow steps", () => {
     expect(
@@ -277,13 +372,24 @@ describe("mapInvitationDetail", () => {
   it("includes join fields and history", () => {
     const row = mapInvitationDetail({
       id: 8,
-      status: "share_details",
+      status: "accept_invitation",
       employee: { name: "Vikram Shah", fadaId: "MH/2023/VS/1540" },
       department: { name: "Service" },
       designation: { name: "Service Advisor" },
       history: [
-        { id: 1, status: "send_invitation", createdAt: "2026-03-25T09:00:00.000Z" },
-        { id: 2, status: "accept_invitation", createdAt: "2026-03-25T11:00:00.000Z" },
+        {
+          id: 1,
+          status: "send_invitation",
+          actionUserBy: "dealer",
+          actionUserName: "Pune Motors",
+          createdAt: "2026-03-25T09:00:00.000Z",
+        },
+        {
+          id: 2,
+          status: "accept_invitation",
+          actionUserBy: "employee",
+          createdAt: "2026-03-25T11:00:00.000Z",
+        },
       ],
     });
     expect(row.departmentName).toBe("Service");
@@ -291,8 +397,107 @@ describe("mapInvitationDetail", () => {
     expect(row.completedSteps).toEqual(
       expect.arrayContaining(["send_invitation", "accept_invitation"]),
     );
+    expect(row.completedSteps).not.toContain("share_details");
     expect(row.history).toHaveLength(2);
+    expect(row.history[0]?.actionUserBy).toBe("dealer");
+    expect(row.history[0]?.actionUserName).toBe("Pune Motors");
+    expect(row.sendInvitationByDealer).toBe(true);
+    expect(row.sendInvitationActorName).toBe("Pune Motors");
+    // Blocked on employee share_details
+    expect(row.canAdvanceWorkflow).toBe(false);
+  });
+
+  it("allows dealer accept when invitation was employee-sent", () => {
+    const row = mapInvitationDetail({
+      id: 9,
+      status: "send_invitation",
+      employee: { name: "Apurv Gupta" },
+      history: [
+        {
+          id: 1,
+          status: "send_invitation",
+          actionUserBy: "employee",
+          actionUserName: "Apurv Gupta",
+        },
+      ],
+    });
+    expect(row.sendInvitationByDealer).toBe(false);
     expect(row.canAdvanceWorkflow).toBe(true);
+  });
+
+  it("maps live dealer-sent invitation with dealership actor and timestamps", () => {
+    const row = mapInvitationDetail({
+      id: 49,
+      employeeId: 30,
+      dealerId: 16,
+      outletId: 1,
+      invitationSendBy: "dealer",
+      status: "rejected",
+      createdAt: "2026-08-19T09:15:48.000Z",
+      employee: {
+        id: 30,
+        fadaId: "FADA-2026-000015",
+        name: "Apurv Gupta",
+        email: "apurv@hotmail.com",
+        phone: "+91 9057618569",
+      },
+      dealership: { id: 16, name: "Abhishek dev", dealerCode: "98769875" },
+      branch: { id: 1, name: "test101" },
+      department: { id: 2, name: "dev" },
+      designation: { id: 7, name: "SD4" },
+      statuses: [
+        {
+          id: 23,
+          status: "send_invitation",
+          actionUserBy: "dealer",
+          createdAt: "2026-08-20T06:18:23.000Z",
+        },
+        {
+          id: 47,
+          status: "accept_invitation",
+          actionUserBy: "dealer",
+          createdAt: "2026-08-25T13:20:22.000Z",
+        },
+        {
+          id: 56,
+          status: "reject_invitation",
+          actionUserBy: "dealer",
+          createdAt: "2026-08-26T05:43:11.000Z",
+        },
+      ],
+    });
+
+    expect(row.fadaId).toBe("FADA-2026-000015");
+    expect(row.branchName).toBe("test101");
+    expect(row.departmentName).toBe("dev");
+    expect(row.designationName).toBe("SD4");
+    expect(row.status).toBe("Rejected");
+    expect(row.sendInvitationByDealer).toBe(true);
+    expect(row.sendInvitationActorName).toBe("Abhishek dev");
+    expect(row.requestedAt).toBe("2026-08-19");
+    expect(row.requestedAtDateTime).toMatch(/2026/);
+    expect(row.rejectedAt).toMatch(/2026/);
+    expect(row.acceptedAt).toMatch(/2026/);
+  });
+
+  it("prefers invitationSendBy over statuses actionUserBy for actor side", () => {
+    const { byDealer, actorName } = resolveSendInvitationActor(
+      {
+        invitationSendBy: "dealer",
+        employee: { name: "Apurv Gupta" },
+        dealership: { name: "Abhishek dev" },
+      },
+      [
+        {
+          id: "1",
+          status: "send_invitation",
+          actionUserBy: "dealer",
+        },
+      ],
+      "Apurv Gupta",
+    );
+    expect(byDealer).toBe(true);
+    expect(actorName).toBe("Abhishek dev");
   });
 });
 
@@ -373,6 +578,7 @@ describe("join workflow order", () => {
 
   it("advances join steps in order", async () => {
     const inProgress = await getInvitationDetail("inv-2");
+    expect(inProgress.sendInvitationByDealer).toBe(true);
     await advanceInvitationStatus(inProgress, "employer_verification");
     const afterVerification = await getInvitationDetail("inv-2");
     expect(afterVerification.completedSteps).toEqual(
@@ -381,7 +587,14 @@ describe("join workflow order", () => {
     await expect(
       advanceInvitationStatus(afterVerification, "share_details"),
     ).rejects.toThrow("already completed");
-    await advanceInvitationStatus(afterVerification, "joining_confirmed");
+    await expect(
+      advanceInvitationStatus(afterVerification, "joining_confirmed"),
+    ).rejects.toThrow("Select a joining date");
+    await advanceInvitationStatus(
+      afterVerification,
+      "joining_confirmed",
+      "2026-04-01",
+    );
     const done = await getInvitationDetail("inv-2");
     expect(done.completedSteps).toContain("joining_confirmed");
     expect(done.canAdvanceWorkflow).toBe(false);
@@ -427,6 +640,8 @@ describe("live join advance routing", () => {
           "accept_invitation",
           "share_details",
         ],
+        history: [],
+        sendInvitationByDealer: true,
       },
       "employer_verification",
     );
@@ -434,6 +649,42 @@ describe("live join advance routing", () => {
     expect(apiFetch).toHaveBeenCalledWith(
       "/dealers/employer-invitations/9/status/employer_verification",
       { method: "PUT" },
+    );
+  });
+
+  it("sends joiningDate in PUT body for joining_confirmed", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    vi.mocked(apiFetch).mockResolvedValue({ success: true });
+
+    await advanceInvitationStatus(
+      {
+        id: "9",
+        employeeName: "Test",
+        fadaId: "—",
+        requestType: "Join",
+        fromTo: "Branch",
+        branchId: "1",
+        branchName: "Branch",
+        requestedAt: "2026-08-19",
+        status: "In Review",
+        canDecide: false,
+        canAdvanceWorkflow: true,
+        completedSteps: [
+          "send_invitation",
+          "accept_invitation",
+          "share_details",
+          "employer_verification",
+        ],
+        history: [],
+        sendInvitationByDealer: true,
+      },
+      "joining_confirmed",
+      "2026-08-25",
+    );
+
+    expect(apiFetch).toHaveBeenCalledWith(
+      "/dealers/employer-invitations/9/status/joining_confirmed",
+      { method: "PUT", body: { joiningDate: "2026-08-25" } },
     );
   });
 });
@@ -656,5 +907,30 @@ describe("live Join/Exit lists", () => {
     const actions = await getEmploymentActionsPage();
     expect(actions.list.items.some((r) => r.actionType === "New Join")).toBe(true);
     expect(actions.list.items.some((r) => r.actionType === "Exit")).toBe(true);
+  });
+});
+
+describe("unwrapDetailRecord", () => {
+  it("unwraps array detail payloads by id", () => {
+    const record = unwrapDetailRecord(
+      {
+        success: true,
+        data: [
+          { id: 48, employee: { name: "Other" } },
+          { id: 49, employee: { name: "Apurv Gupta", fadaId: "FADA-2026-000015" } },
+        ],
+      },
+      "49",
+    ) as { employee: { name: string } };
+
+    expect(record.employee.name).toBe("Apurv Gupta");
+  });
+
+  it("returns first array item when id is not provided", () => {
+    const record = unwrapDetailRecord({
+      data: [{ id: 1, employee: { name: "First" } }],
+    }) as { employee: { name: string } };
+
+    expect(record.employee.name).toBe("First");
   });
 });

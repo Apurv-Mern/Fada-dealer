@@ -40,7 +40,7 @@ export function EmployeesRejoinDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Invite employee"
-      description="Search by FADA ID and send a join invitation with branch, department, and designation."
+      description="Search by FADA ID and send a join invitation with outlet, department, and designation."
       className="max-w-md"
     >
       {open ? (
@@ -146,7 +146,7 @@ function InviteForm({
     e.preventDefault();
     if (!selected) return;
     if (!outletId || !departmentId || !designationId) {
-      toast.error("Select branch, department, and designation");
+      toast.error("Select outlet, department, and designation");
       return;
     }
     setIsSaving(true);
@@ -217,13 +217,13 @@ function InviteForm({
         </div>
         <MasterChipSelect
           id="invite-branch"
-          label="Branch"
+          label="Outlet"
           className="w-full min-w-0"
           items={toChipItems(filterOptions.branches)}
           value={outletId}
           onChange={setOutletId}
-          placeholder="Search branches"
-          searchAriaLabel="Branch"
+          placeholder="Search outlets"
+          searchAriaLabel="Outlet"
         />
         <MasterChipSelect
           id="invite-dept"

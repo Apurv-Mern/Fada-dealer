@@ -40,7 +40,7 @@ export function BranchesCharts({
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Employees by Branch</CardTitle>
+            <CardTitle>Employees by Outlet</CardTitle>
           </CardHeader>
           <CardContent>
             <DonutChart
@@ -53,7 +53,7 @@ export function BranchesCharts({
 
         <Card>
           <CardHeader>
-            <CardTitle>Branch Performance</CardTitle>
+            <CardTitle>Outlet Performance</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
@@ -77,7 +77,7 @@ export function BranchesCharts({
 
       <Card>
         <CardHeader>
-          <CardTitle>Branch FADA Score Comparison</CardTitle>
+          <CardTitle>Outlet FADA Score Comparison</CardTitle>
         </CardHeader>
         <CardContent>
           <BarChart items={branchScores} max={1000} />

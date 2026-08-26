@@ -19,7 +19,7 @@ export type NavItem = {
 export const dealerNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Company Profile", href: "/dealership", icon: Building2 },
-  { label: "Branches", href: "/branches", icon: GitBranch },
+  { label: "Outlets", href: "/branches", icon: GitBranch },
   { label: "Employees", href: "/employees", icon: Users },
   { label: "Employment Requests", href: "/verifications", icon: ClipboardList },
   { label: "Reports", href: "/reports", icon: BarChart3 },

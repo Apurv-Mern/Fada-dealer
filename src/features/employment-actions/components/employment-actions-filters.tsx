@@ -64,8 +64,8 @@ export function EmploymentActionsFilters({
         className="w-full lg:w-auto lg:min-w-[140px]"
       />
       <Select
-        aria-label="Branch filter"
-        placeholder="All Branches"
+        aria-label="Outlet filter"
+        placeholder="All Outlets"
         value={branchId}
         onChange={onBranchChange}
         options={filterOptions.branches}

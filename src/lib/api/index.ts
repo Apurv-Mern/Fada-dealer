@@ -1,11 +1,13 @@
 export {
   apiFetch,
+  apiFetchBlob,
   apiUploadFile,
   bearerAuthHeader,
   getApiBaseUrl,
   isMockMode,
   isProxyMode,
   isRealDealerAuthEnabled,
+  type ApiBlobResult,
 } from "./client";
 export { toDisplayableFileUrl, getDisplayableFileUrlCandidates } from "./file-url";
 export {

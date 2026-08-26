@@ -40,6 +40,10 @@ export type LeavingHistoryItem = {
   id: string;
   status: string;
   createdAt?: string;
+  /** Who performed this status update: dealer | employee | admin. */
+  actionUserBy?: string;
+  /** Display name of the actor when available. */
+  actionUserName?: string;
 };
 
 export type EmploymentRequest = {
@@ -64,6 +68,12 @@ export type EmploymentRequest = {
   resignationDate?: string;
   lastWorkingDay?: string;
   reason?: string;
+  /** Full local date-time for popup display (listing uses date-only `requestedAt`). */
+  requestedAtDateTime?: string;
+  /** Latest accept_invitation / accept_resignation timestamp (popup). */
+  acceptedAt?: string;
+  /** Latest reject_invitation timestamp (popup). */
+  rejectedAt?: string;
 };
 
 export type LeavingDetail = EmploymentRequest & {
@@ -72,6 +82,10 @@ export type LeavingDetail = EmploymentRequest & {
 
 export type InvitationDetail = EmploymentRequest & {
   history: LeavingHistoryItem[];
+  /** Whether send_invitation was performed by the dealer. */
+  sendInvitationByDealer?: boolean;
+  /** Display name for who sent/received the invitation. */
+  sendInvitationActorName?: string;
 };
 
 export type EmploymentRequestStats = {

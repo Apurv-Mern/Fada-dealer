@@ -42,7 +42,7 @@ export default function BranchesPage() {
       <div>
         <BranchesHeader />
         <SectionError
-          description={dashboardError ?? "Couldn't load branches."}
+          description={dashboardError ?? "Couldn't load outlets."}
           onRetry={retryDashboard}
         />
       </div>

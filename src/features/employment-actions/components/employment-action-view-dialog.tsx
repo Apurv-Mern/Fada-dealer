@@ -77,7 +77,7 @@ export function EmploymentActionViewDialog({
           <DetailRow label="Mobile" value={row.mobile} />
           <DetailRow label="Action Type" value={row.actionType} />
           <DetailRow label="Details" value={row.actionDetails} />
-          <DetailRow label="Branch" value={row.branchName} />
+          <DetailRow label="Outlet" value={row.branchName} />
           <DetailRow label="Designation" value={row.designation} />
           <DetailRow
             label="Action Date"

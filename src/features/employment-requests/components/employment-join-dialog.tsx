@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Check } from "lucide-react";
 
 import { SectionError } from "@/components/layout/section-error";
-import { Badge, Button, Dialog, Skeleton, toast } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Dialog,
+  Input,
+  Skeleton,
+  toast,
+} from "@/components/ui";
 import { toAuthErrorMessage } from "@/features/auth/client-auth";
 import {
   advanceInvitationStatus,
@@ -13,7 +20,9 @@ import {
 } from "@/features/employment-requests/api";
 import { requestStatusBadge } from "@/features/employment-requests/components/employment-requests-table";
 import {
+  isEmployeeOwnedJoinStep,
   isJoinInvitationStatus,
+  nextDealerJoinStatus,
   nextJoinInvitationStatus,
   normalizeJoinStepStatus,
   type JoinInvitationStatus,
@@ -36,6 +45,36 @@ function DetailRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
+function pickDisplayValue(primary?: string, fallback?: string): string {
+  if (primary && primary !== "—") return primary;
+  if (fallback && fallback !== "—") return fallback;
+  return primary ?? fallback ?? "—";
+}
+
+/** Prefer list-row values when detail unwrap drops nested fields. */
+function mergeEmploymentRequest(
+  list: EmploymentRequest,
+  detail: EmploymentRequest | null | undefined,
+): EmploymentRequest {
+  if (!detail) return list;
+  return {
+    ...list,
+    ...detail,
+    employeeName: pickDisplayValue(detail.employeeName, list.employeeName),
+    fadaId: pickDisplayValue(detail.fadaId, list.fadaId),
+    branchName: pickDisplayValue(detail.branchName, list.branchName),
+    fromTo: pickDisplayValue(detail.fromTo, list.fromTo),
+    requestedAt: pickDisplayValue(detail.requestedAt, list.requestedAt),
+    departmentName: detail.departmentName || list.departmentName,
+    designationName: detail.designationName || list.designationName,
+    mobile: detail.mobile || list.mobile,
+    requestedAtDateTime:
+      detail.requestedAtDateTime || list.requestedAtDateTime,
+    acceptedAt: detail.acceptedAt || list.acceptedAt,
+    rejectedAt: detail.rejectedAt || list.rejectedAt,
+  };
+}
+
 function joinStepSuccessMessage(status: JoinInvitationStatus): string {
   switch (status) {
     case "joining_confirmed":
@@ -53,16 +92,50 @@ function joinStepSuccessMessage(status: JoinInvitationStatus): string {
   }
 }
 
-function historyLabel(status: string, steps: LeavingStep[]): string {
-  const normalized = normalizeJoinStepStatus(status);
-  const match = steps.find(
-    (step) => normalizeJoinStepStatus(step.status) === normalized,
-  );
-  if (match?.title) return match.title;
-  if (normalized === "accepted") return "Accepted";
-  if (normalized === "rejected") return "Rejected";
-  if (normalized === "pending") return "Pending";
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+function sendInvitationTitle(byDealer: boolean): string {
+  return byDealer ? "Invitation sent" : "Invitation Received";
+}
+
+function sendInvitationActorLine(
+  byDealer: boolean,
+  actorName: string,
+  outletName?: string,
+): string {
+  const outlet =
+    outletName && outletName !== "—" ? ` · ${outletName}` : "";
+  return byDealer
+    ? `Sent by ${actorName}${outlet}`
+    : `Received from ${actorName}${outlet}`;
+}
+
+function rejectionLabel(byDealer: boolean): string {
+  return byDealer
+    ? "Invitation rejected by Employee"
+    : "Invitation rejected by Dealer";
+}
+
+function stepDisplayTitle(
+  step: LeavingStep,
+  sendByDealer: boolean,
+): string {
+  const normalized = normalizeJoinStepStatus(step.status);
+  if (normalized === "send_invitation") {
+    return sendInvitationTitle(sendByDealer);
+  }
+  return step.title;
+}
+
+function stepDisplayDescription(
+  step: LeavingStep,
+  sendByDealer: boolean,
+  actorName: string,
+  outletName?: string,
+): string {
+  const normalized = normalizeJoinStepStatus(step.status);
+  if (normalized === "send_invitation") {
+    return sendInvitationActorLine(sendByDealer, actorName, outletName);
+  }
+  return step.description;
 }
 
 export function EmploymentJoinDialog({
@@ -120,6 +193,8 @@ function JoinDialogBody({
     null,
   );
   const [reloadToken, setReloadToken] = useState(0);
+  const [joiningDateOpen, setJoiningDateOpen] = useState(false);
+  const [joiningDate, setJoiningDate] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -141,10 +216,22 @@ function JoinDialogBody({
     };
   }, [request.id, reloadToken]);
 
-  const row = detail ?? request;
+  const row = mergeEmploymentRequest(request, detail);
   const completed = detail?.completedSteps ?? request.completedSteps ?? [];
-  const nextStep = nextJoinInvitationStatus(completed);
+  const sendByDealer = detail?.sendInvitationByDealer ?? false;
+  const actorName =
+    detail?.sendInvitationActorName ||
+    (sendByDealer ? "Dealer" : row.employeeName) ||
+    "Dealer";
+  const outletName = row.branchName || row.fromTo;
+  const nextStep = nextDealerJoinStatus(completed, sendByDealer);
+  const currentWorkflowStep = nextJoinInvitationStatus(completed);
   const canAdvance = Boolean(detail?.canAdvanceWorkflow && nextStep);
+  const isRejected = row.status === "Rejected";
+  const showAcceptedAt =
+    Boolean(row.acceptedAt) &&
+    row.status !== "Rejected" &&
+    row.status !== "Pending";
   const completedCount = useMemo(
     () =>
       steps.filter((step) =>
@@ -155,12 +242,17 @@ function JoinDialogBody({
   const progressPct =
     steps.length === 0 ? 0 : Math.round((completedCount / steps.length) * 100);
 
-  async function handleAdvance(status: JoinInvitationStatus) {
+  async function handleAdvance(
+    status: JoinInvitationStatus,
+    date?: string,
+  ) {
     if (!detail) return;
     setAdvancing(status);
     try {
-      await advanceInvitationStatus(detail, status);
+      await advanceInvitationStatus(detail, status, date);
       toast.success(joinStepSuccessMessage(status));
+      setJoiningDateOpen(false);
+      setJoiningDate("");
       const [nextDetail, nextSteps] = await Promise.all([
         getInvitationDetail(detail.id),
         getInvitationSteps(),
@@ -174,6 +266,15 @@ function JoinDialogBody({
     } finally {
       setAdvancing(null);
     }
+  }
+
+  function onMarkDoneClick(status: JoinInvitationStatus) {
+    if (status === "joining_confirmed") {
+      setJoiningDate("");
+      setJoiningDateOpen(true);
+      return;
+    }
+    void handleAdvance(status);
   }
 
   if (loading && !detail) {
@@ -213,10 +314,22 @@ function JoinDialogBody({
         <DetailRow label="Employee" value={row.employeeName} />
         <DetailRow label="FADA ID" value={row.fadaId} />
         <DetailRow label="Mobile" value={row.mobile} />
-        <DetailRow label="Branch" value={row.branchName || row.fromTo} />
+        <DetailRow label="Branch" value={outletName} />
         <DetailRow label="Department" value={row.departmentName} />
         <DetailRow label="Designation" value={row.designationName} />
-        <DetailRow label="Requested" value={row.requestedAt} />
+        <DetailRow
+          label="Requested"
+          value={row.requestedAtDateTime || row.requestedAt}
+        />
+        {showAcceptedAt ? (
+          <DetailRow label="Invitation accepted" value={row.acceptedAt} />
+        ) : null}
+        {isRejected ? (
+          <DetailRow
+            label={rejectionLabel(sendByDealer)}
+            value={row.rejectedAt}
+          />
+        ) : null}
         <div className="grid grid-cols-[7.5rem_1fr] gap-2 text-sm sm:grid-cols-[9rem_1fr]">
           <dt className="text-[var(--color-text-muted)]">Status</dt>
           <dd>
@@ -242,7 +355,18 @@ function JoinDialogBody({
         </div>
       ) : null}
 
-      {row.status !== "Rejected" && steps.length > 0 ? (
+      {isRejected ? (
+        <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] p-3">
+          <p className="text-sm font-semibold text-[var(--color-heading)]">
+            {sendInvitationTitle(sendByDealer)}
+          </p>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+            {sendInvitationActorLine(sendByDealer, actorName, outletName)}
+          </p>
+        </div>
+      ) : null}
+
+      {!isRejected && steps.length > 0 ? (
         <div className="space-y-3">
           <div>
             <div className="mb-1.5 flex items-center justify-between text-xs text-[var(--color-text-muted)]">
@@ -270,16 +394,32 @@ function JoinDialogBody({
               const normalizedStatus = normalizeJoinStepStatus(step.status);
               const isActionable = isJoinInvitationStatus(normalizedStatus);
               const done = completed.includes(normalizedStatus);
+              const employeeOwned =
+                isActionable &&
+                isEmployeeOwnedJoinStep(normalizedStatus, sendByDealer);
               const isNext = Boolean(
                 canAdvance && isActionable && normalizedStatus === nextStep,
               );
-              const isFuture = !done && !isNext;
+              const isWaitingOnEmployee =
+                !done &&
+                employeeOwned &&
+                normalizedStatus === currentWorkflowStep;
+              const isHighlighted = isNext || isWaitingOnEmployee;
+              const isFuture = !done && !isHighlighted;
+              const title = stepDisplayTitle(step, sendByDealer);
+              const description = stepDisplayDescription(
+                step,
+                sendByDealer,
+                actorName,
+                outletName,
+              );
+
               return (
                 <li
                   key={step.id}
                   className={cn(
                     "rounded-[var(--radius-md)] border p-3 transition-colors",
-                    isNext
+                    isHighlighted
                       ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5"
                       : "border-[var(--color-border)]",
                     isFuture && "opacity-70",
@@ -293,30 +433,38 @@ function JoinDialogBody({
                             "flex size-5 shrink-0 items-center justify-center rounded-full",
                             done
                               ? "bg-[var(--color-success)] text-white"
-                              : isNext
+                              : isHighlighted
                                 ? "border border-[var(--color-primary)] bg-white text-[var(--color-primary)]"
                                 : "bg-[var(--color-muted)] text-[var(--color-text-muted)]",
                           )}
                         >
                           {done ? <Check className="size-3" /> : null}
                         </span>
-                        {step.title}
+                        {title}
                       </p>
-                      {step.description ? (
+                      {description ? (
                         <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                          {step.description}
+                          {description}
                         </p>
                       ) : null}
                     </div>
-                    {isActionable ? (
+                    {done ? (
+                      <Button type="button" size="sm" disabled>
+                        Done
+                      </Button>
+                    ) : employeeOwned ? (
+                      isWaitingOnEmployee ? (
+                        <Badge variant="warning">Pending</Badge>
+                      ) : null
+                    ) : isActionable ? (
                       <Button
                         type="button"
                         size="sm"
                         disabled={!isNext || advancing !== null}
                         isLoading={advancing === normalizedStatus}
-                        onClick={() => void handleAdvance(normalizedStatus)}
+                        onClick={() => onMarkDoneClick(normalizedStatus)}
                       >
-                        {done ? "Done" : "Mark done"}
+                        Mark done
                       </Button>
                     ) : null}
                   </div>
@@ -327,30 +475,48 @@ function JoinDialogBody({
         </div>
       ) : null}
 
-      {detail?.history.length ? (
-        <div>
-          <p className="mb-2 text-xs font-semibold tracking-wide text-[var(--color-text-muted)] uppercase">
-            History
-          </p>
-          <ul className="space-y-1.5 text-sm">
-            {detail.history.map((item) => (
-              <li
-                key={item.id}
-                className="flex justify-between gap-3 text-[var(--color-text-muted)]"
-              >
-                <span className="min-w-0 break-words">
-                  {historyLabel(item.status, steps)}
-                </span>
-                <span className="shrink-0">
-                  {item.createdAt
-                    ? new Date(item.createdAt).toISOString().slice(0, 10)
-                    : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
+      <Dialog
+        open={joiningDateOpen}
+        onOpenChange={(open) => {
+          if (advancing) return;
+          setJoiningDateOpen(open);
+          if (!open) setJoiningDate("");
+        }}
+        title="Select joining date"
+        description="Choose the employee’s joining date to confirm this step."
+        className="max-w-sm"
+        overlayClassName="z-[60]"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Joining date"
+            type="date"
+            value={joiningDate}
+            onChange={(e) => setJoiningDate(e.target.value)}
+            required
+          />
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={advancing !== null}
+              onClick={() => setJoiningDateOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!joiningDate}
+              isLoading={advancing === "joining_confirmed"}
+              onClick={() =>
+                void handleAdvance("joining_confirmed", joiningDate)
+              }
+            >
+              Confirm
+            </Button>
+          </div>
         </div>
-      ) : null}
+      </Dialog>
     </div>
   );
 }

@@ -29,7 +29,7 @@ export function EmployeesStats({
         value={stats.total}
         icon={Users}
         tone="orange"
-        hint="Across all branches"
+        hint="Across all outlets"
       />
       <StatCard
         label="Active Employees"

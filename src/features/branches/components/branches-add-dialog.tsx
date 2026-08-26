@@ -421,7 +421,7 @@ export function BranchesAddDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? "Edit Branch" : "Add New Branch"}
+      title={isEdit ? "Edit Outlet" : "Add New Outlet"}
       description={
         isEdit
           ? "Update outlet details for this company."
@@ -585,10 +585,10 @@ function BranchForm({
     try {
       if (isEdit && branch) {
         await updateOutlet(branch.id, payload);
-        toast.success("Branch updated");
+        toast.success("Outlet updated");
       } else {
         await createOutlet(payload);
-        toast.success("Branch added");
+        toast.success("Outlet added");
       }
       onOpenChange(false);
       onSaved?.();
@@ -596,7 +596,7 @@ function BranchForm({
       toast.error(
         toAuthErrorMessage(
           err,
-          isEdit ? "Failed to update branch" : "Failed to add branch",
+          isEdit ? "Failed to update outlet" : "Failed to add outlet",
         ),
       );
     } finally {

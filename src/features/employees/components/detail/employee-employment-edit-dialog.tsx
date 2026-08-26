@@ -119,7 +119,7 @@ function EmploymentEditForm({
       return;
     }
     if (hasBranches && !outletId.trim()) {
-      toast.error("Select a branch");
+      toast.error("Select an outlet");
       return;
     }
 
@@ -253,14 +253,14 @@ function EmploymentEditForm({
 
       <MasterChipSelect
         id={`${baseId}-branch`}
-        label="Branch"
+        label="Outlet"
         className="w-full min-w-0"
         items={toChipItems(filterOptions.branches)}
         value={outletId}
         onChange={setOutletId}
         disabled={!hasBranches}
-        placeholder={hasBranches ? "Search branches" : "No branches yet"}
-        searchAriaLabel="Branch"
+        placeholder={hasBranches ? "Search outlets" : "No outlets yet"}
+        searchAriaLabel="Outlet"
       />
 
       <Input

@@ -58,6 +58,52 @@ function extractErrorMessage(data: unknown, fallback: string): string {
   return fallback;
 }
 
+function applyAuthHeaders(
+  headers: Headers,
+  options: Pick<RequestOptions, "skipAuth" | "skipDealerHeader">,
+): void {
+  const { skipAuth, skipDealerHeader } = options;
+
+  if (!skipAuth && !headers.has("Authorization")) {
+    const token = getAccessToken();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
+  if (!skipAuth && !skipDealerHeader && !headers.has("x-dealer-id")) {
+    const actingId = getActingDealerId();
+    if (actingId) {
+      headers.set("x-dealer-id", actingId);
+    }
+  }
+}
+
+function parseContentDispositionFilename(
+  header: string | null,
+  fallback: string,
+): string {
+  if (!header) return fallback;
+  const utf8Match = /filename\*=UTF-8''([^;\n]+)/i.exec(header);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1].replace(/"/g, ""));
+    } catch {
+      return utf8Match[1].replace(/"/g, "");
+    }
+  }
+  const quotedMatch = /filename="([^"]+)"/i.exec(header);
+  if (quotedMatch?.[1]) return quotedMatch[1];
+  const plainMatch = /filename=([^;\n]+)/i.exec(header);
+  if (plainMatch?.[1]) return plainMatch[1].trim().replace(/"/g, "");
+  return fallback;
+}
+
+export type ApiBlobResult = {
+  blob: Blob;
+  filename: string;
+};
+
 export async function apiFetch<T>(
   path: string,
   options: RequestOptions = {},
@@ -79,19 +125,7 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  if (!skipAuth && !headers.has("Authorization")) {
-    const token = getAccessToken();
-    if (token) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-  }
-
-  if (!skipAuth && !skipDealerHeader && !headers.has("x-dealer-id")) {
-    const actingId = getActingDealerId();
-    if (actingId) {
-      headers.set("x-dealer-id", actingId);
-    }
-  }
+  applyAuthHeaders(headers, { skipAuth, skipDealerHeader });
 
   const response = await fetch(url, {
     ...rest,
@@ -135,6 +169,68 @@ export async function apiFetch<T>(
   }
 
   return (await response.json()) as T;
+}
+
+/**
+ * Authenticated GET (or other method) that returns a binary file download.
+ * Uses the same Bearer + x-dealer-id headers as `apiFetch`.
+ */
+export async function apiFetchBlob(
+  path: string,
+  options: RequestOptions = {},
+): Promise<ApiBlobResult> {
+  const base = getApiBaseUrl();
+  const url = path.startsWith("http")
+    ? path
+    : `${base}${path.startsWith("/") ? path : `/${path}`}`;
+
+  const { skipAuth, skipDealerHeader, body, headers: initHeaders, ...rest } =
+    options;
+  const headers = new Headers(initHeaders);
+  applyAuthHeaders(headers, { skipAuth, skipDealerHeader });
+
+  const response = await fetch(url, {
+    ...rest,
+    credentials: "omit",
+    headers,
+    body:
+      body === undefined
+        ? undefined
+        : body instanceof FormData
+          ? body
+          : JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    let message = response.statusText || "Download failed";
+    let code: string | undefined;
+    try {
+      const data = (await response.json()) as {
+        message?: string;
+        error?: string;
+        code?: string;
+      };
+      message = extractErrorMessage(data, message);
+      code = data.code;
+    } catch {
+      // ignore parse errors
+    }
+
+    if (!skipAuth && response.status === 401) {
+      forceLocalLogout("session");
+    }
+
+    throw new ApiError({ message, code, status: response.status });
+  }
+
+  const blob = await response.blob();
+  const fallback = "download.bin";
+  const filename = parseContentDispositionFilename(
+    response.headers.get("Content-Disposition"),
+    fallback,
+  );
+
+  return { blob, filename };
 }
 
 /**

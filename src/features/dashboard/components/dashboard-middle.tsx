@@ -41,7 +41,7 @@ export function DashboardMiddleRow({
     <div className="mb-6 grid gap-4 lg:grid-cols-3">
       <Card className="flex flex-col">
         <CardHeader>
-          <CardTitle>Employees by Branch</CardTitle>
+          <CardTitle>Employees by Outlet</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-1 items-center justify-center">
           <DonutChart

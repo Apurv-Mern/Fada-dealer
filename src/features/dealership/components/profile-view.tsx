@@ -112,7 +112,7 @@ export function DealershipProfileView({
             }
           />
           <Field
-            label="Total Branches"
+            label="Total Outlets"
             value={String(profile.totalOutlets ?? 0)}
           />
           <Field

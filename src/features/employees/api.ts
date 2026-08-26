@@ -392,7 +392,7 @@ export function mapApiEmployeeDetail(raw: unknown): EmployeeDetail {
             {
               id: `current-${base.id}`,
               title: base.designation !== "—" ? base.designation : "Employee",
-              subtitle: "Branch / outlet assignment",
+              subtitle: "Outlet assignment",
               company:
                 readString(record, "dealershipName") ||
                 readString(employee, "dealershipName") ||
@@ -1027,7 +1027,7 @@ export async function createEmployeeTransfer(
 ): Promise<void> {
   if (input.fromOutletId && input.fromOutletId === input.outletId) {
     throw new ApiError({
-      message: "Select a different branch",
+      message: "Select a different outlet",
       status: 409,
     });
   }

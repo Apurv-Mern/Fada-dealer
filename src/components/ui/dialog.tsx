@@ -16,6 +16,8 @@ export type DialogProps = {
   headerActions?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Applied to the fixed overlay wrapper (e.g. z-[60] for stacked dialogs). */
+  overlayClassName?: string;
 };
 
 export function Dialog({
@@ -26,13 +28,19 @@ export function Dialog({
   headerActions,
   children,
   className,
+  overlayClassName,
 }: DialogProps) {
   const panelRef = useFocusTrap(open, () => onOpenChange(false));
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      className={cn(
+        "fixed inset-0 z-50 flex items-center justify-center p-4",
+        overlayClassName,
+      )}
+    >
       <button
         type="button"
         aria-label="Close dialog"

@@ -13,7 +13,8 @@ import {
 } from "@/features/employment-requests/leaving-steps";
 import {
   collectCompletedJoinSteps,
-  nextJoinInvitationStatus,
+  isDealerActor,
+  nextDealerJoinStatus,
   type JoinInvitationStatus,
 } from "@/features/employment-requests/joining-steps";
 import { ApiError } from "@/lib/api/errors";
@@ -217,16 +218,22 @@ const initialInvitationExtra: Record<string, InvitationExtra> = {
       {
         id: "h-inv-2a",
         status: "send_invitation",
+        actionUserBy: "dealer",
+        actionUserName: "Andheri Motors",
         createdAt: "2026-03-25T09:00:00.000Z",
       },
       {
         id: "h-inv-2b",
         status: "accept_invitation",
+        actionUserBy: "employee",
+        actionUserName: "Vikram Shah",
         createdAt: "2026-03-25T11:00:00.000Z",
       },
       {
         id: "h-inv-2c",
         status: "share_details",
+        actionUserBy: "employee",
+        actionUserName: "Vikram Shah",
         createdAt: "2026-03-26T10:00:00.000Z",
       },
     ],
@@ -239,26 +246,36 @@ const initialInvitationExtra: Record<string, InvitationExtra> = {
       {
         id: "h-inv-3a",
         status: "send_invitation",
+        actionUserBy: "employee",
+        actionUserName: "Ananya Iyer",
         createdAt: "2026-03-20T09:00:00.000Z",
       },
       {
         id: "h-inv-3b",
         status: "accept_invitation",
+        actionUserBy: "dealer",
+        actionUserName: "Thane Sales Dealer",
         createdAt: "2026-03-20T11:00:00.000Z",
       },
       {
         id: "h-inv-3c",
         status: "share_details",
+        actionUserBy: "employee",
+        actionUserName: "Ananya Iyer",
         createdAt: "2026-03-21T10:00:00.000Z",
       },
       {
         id: "h-inv-3d",
         status: "employer_verification",
+        actionUserBy: "dealer",
+        actionUserName: "Thane Sales Dealer",
         createdAt: "2026-03-22T14:00:00.000Z",
       },
       {
         id: "h-inv-3e",
         status: "joining_confirmed",
+        actionUserBy: "dealer",
+        actionUserName: "Thane Sales Dealer",
         createdAt: "2026-03-23T16:00:00.000Z",
       },
     ],
@@ -532,6 +549,20 @@ export function updateMockRequestStatus(
 
 export function addMockJoinInvitation(row: EmploymentRequest) {
   mockEmploymentRequests = [{ ...row }, ...mockEmploymentRequests];
+  mockInvitationExtra[row.id] = {
+    departmentName: row.departmentName,
+    designationName: row.designationName,
+    mobile: row.mobile,
+    history: [
+      {
+        id: `h-${row.id}-send`,
+        status: "send_invitation",
+        actionUserBy: "dealer",
+        actionUserName: "Dealer",
+        createdAt: new Date().toISOString(),
+      },
+    ],
+  };
 }
 
 export function getMockLeavingDetail(id: string): LeavingDetail {
@@ -559,16 +590,30 @@ export function getMockInvitationDetail(id: string): InvitationDetail {
     throw new ApiError({ message: "Join request not found", status: 404 });
   }
   const extra = mockInvitationExtra[id] ?? { history: [] };
+  const completedSteps = collectCompletedJoinSteps({
+    ...row,
+    statuses: extra.history,
+  });
+  const sendRow = extra.history.find(
+    (item) => item.status === "send_invitation",
+  );
+  const sendInvitationByDealer = isDealerActor(sendRow?.actionUserBy);
+  const sendInvitationActorName =
+    sendRow?.actionUserName ||
+    (sendInvitationByDealer ? "Dealer" : row.employeeName);
   return {
     ...row,
     departmentName: row.departmentName ?? extra.departmentName,
     designationName: row.designationName ?? extra.designationName,
     mobile: row.mobile ?? extra.mobile,
     history: extra.history,
-    completedSteps: collectCompletedJoinSteps({
-      ...row,
-      statuses: extra.history,
-    }),
+    completedSteps,
+    sendInvitationByDealer,
+    sendInvitationActorName,
+    canAdvanceWorkflow:
+      row.status !== "Rejected" &&
+      row.status !== "Approved" &&
+      nextDealerJoinStatus(completedSteps, sendInvitationByDealer) !== null,
   };
 }
 
@@ -597,7 +642,11 @@ export function advanceMockInvitationStatus(
       status: 400,
     });
   }
-  const expected = nextJoinInvitationStatus(completed);
+  const sendRow = (mockInvitationExtra[id]?.history ?? []).find(
+    (item) => item.status === "send_invitation",
+  );
+  const sendByDealer = isDealerActor(sendRow?.actionUserBy);
+  const expected = nextDealerJoinStatus(completed, sendByDealer);
   if (expected !== status) {
     throw new ApiError({
       message: "Complete the previous join step first",
@@ -614,7 +663,9 @@ export function advanceMockInvitationStatus(
           ...item,
           completedSteps: nextCompleted,
           canDecide: false,
-          canAdvanceWorkflow: !done,
+          canAdvanceWorkflow:
+            !done &&
+            nextDealerJoinStatus(nextCompleted, sendByDealer) !== null,
           status: done ? "Approved" : "In Review",
         }
       : item,
@@ -628,6 +679,8 @@ export function advanceMockInvitationStatus(
       {
         id: `h-${id}-${status}`,
         status,
+        actionUserBy: "dealer",
+        actionUserName: "Dealer",
         createdAt: new Date().toISOString(),
       },
     ],

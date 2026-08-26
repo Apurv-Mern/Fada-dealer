@@ -38,6 +38,40 @@ export function nextJoinInvitationStatus(
   );
 }
 
+export function isDealerActor(value: string | undefined | null): boolean {
+  return (value ?? "").toLowerCase().trim() === "dealer";
+}
+
+/**
+ * Steps the dealer portal must not advance — employee (or other party) owns them.
+ * - share_details: always employee
+ * - accept_invitation: employee when dealer already sent the invitation
+ */
+export function isEmployeeOwnedJoinStep(
+  status: string,
+  sendInvitationByDealer: boolean,
+): boolean {
+  if (status === "share_details") return true;
+  if (status === "accept_invitation" && sendInvitationByDealer) return true;
+  return false;
+}
+
+/**
+ * Next step the dealer can Mark done. Returns null when blocked on an
+ * employee-owned step or when the workflow is complete.
+ */
+export function nextDealerJoinStatus(
+  completedSteps: string[] = [],
+  sendInvitationByDealer = false,
+): JoinInvitationStatus | null {
+  for (const step of JOIN_INVITATION_STATUSES) {
+    if (completedSteps.includes(step)) continue;
+    if (isEmployeeOwnedJoinStep(step, sendInvitationByDealer)) return null;
+    return step;
+  }
+  return null;
+}
+
 export function normalizeJoinStepStatus(raw: string): string {
   const s = raw.toLowerCase().replace(/[\s-]+/g, "_");
   if (s.includes("send") && s.includes("invitation")) return "send_invitation";

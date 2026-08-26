@@ -89,7 +89,7 @@ export function EmploymentActionsTable({
       },
       {
         id: "branch",
-        header: "Branch",
+        header: "Outlet",
         cell: (row) => row.branchName || "—",
       },
       {

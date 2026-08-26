@@ -29,7 +29,7 @@ export function EmployeesTransferDialog({
       title="Transfer employee"
       description={
         employee
-          ? `Move ${employee.name} to another branch.`
+          ? `Move ${employee.name} to another outlet.`
           : undefined
       }
       className="max-w-md"
@@ -107,7 +107,7 @@ function TransferForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!toOutletId) {
-      toast.error("Select a destination branch");
+      toast.error("Select a destination outlet");
       return;
     }
     if (!departmentId || !designationId) {
@@ -146,19 +146,19 @@ function TransferForm({
   return (
     <form className="space-y-4" onSubmit={handleSubmit} noValidate>
       <div>
-        <Label htmlFor="transfer-from">From branch</Label>
+        <Label htmlFor="transfer-from">From outlet</Label>
         <Input id="transfer-from" value={employee.branch} readOnly disabled />
       </div>
       <MasterChipSelect
         id="transfer-to"
-        label="To branch"
+        label="To outlet"
         required
         className="w-full min-w-0"
         items={toChipItems(toOptions)}
         value={toOutletId}
         onChange={setToOutletId}
-        placeholder="Search branches"
-        searchAriaLabel="To branch"
+        placeholder="Search outlets"
+        searchAriaLabel="To outlet"
       />
       <MasterChipSelect
         id="transfer-dept"

@@ -127,7 +127,7 @@ export function EmployeeDealerManagedCard({
           />
           <FieldRow
             icon={GitBranch}
-            label="Branch"
+            label="Outlet"
             value={employee.branch || "—"}
             iconClassName="bg-sky-50 text-sky-600"
           />

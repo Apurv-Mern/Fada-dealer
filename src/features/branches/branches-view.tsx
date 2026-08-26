@@ -12,7 +12,7 @@ import { BranchesStats } from "@/features/branches/components/branches-stats";
 import type { Branch, BranchDashboard } from "@/features/branches/types";
 
 export type BranchesHeaderProps = {
-  /** When true, show Add New Branch (default for full dashboard view). */
+  /** When true, show Add New Outlet (default for full dashboard view). */
   showAddBranch?: boolean;
   onAddBranch?: () => void;
 };
@@ -23,13 +23,13 @@ export function BranchesHeader({
 }: BranchesHeaderProps) {
   return (
     <PageHeader
-      title="Branch Management"
-      description="Configure company branches and monitor workforce distribution."
+      title="Outlet Management"
+      description="Configure company outlets and monitor workforce distribution."
       actions={
         showAddBranch ? (
           <Button onClick={onAddBranch} className="w-full sm:w-auto">
             <Plus />
-            Add New Branch
+            Add New Outlet
           </Button>
         ) : null
       }

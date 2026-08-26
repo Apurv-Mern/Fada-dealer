@@ -48,7 +48,7 @@ function BranchRowActions({
 }) {
   return (
     <div className="flex shrink-0 justify-end gap-1">
-      <Tooltip content="Edit branch">
+      <Tooltip content="Edit outlet">
         <Button
           variant="ghost"
           size="icon"
@@ -58,7 +58,7 @@ function BranchRowActions({
           <Pencil />
         </Button>
       </Tooltip>
-      <Tooltip content="Delete branch">
+      <Tooltip content="Delete outlet">
         <Button
           variant="ghost"
           size="icon"
@@ -93,11 +93,11 @@ export function BranchesOverviewTable({
     setDeleting(true);
     try {
       await deleteOutlet(pendingDelete.id);
-      toast.success("Branch deleted");
+      toast.success("Outlet deleted");
       setPendingDelete(null);
       onChanged?.();
     } catch (err) {
-      toast.error(toAuthErrorMessage(err, "Failed to delete branch"));
+      toast.error(toAuthErrorMessage(err, "Failed to delete outlet"));
     } finally {
       setDeleting(false);
     }
@@ -106,7 +106,7 @@ export function BranchesOverviewTable({
   const columns: DataTableColumn<Branch>[] = [
     {
       id: "name",
-      header: "Branch Name",
+      header: "Outlet Name",
       headerClassName: "w-[20%]",
       className: "max-w-0 overflow-hidden font-semibold text-[var(--color-heading)]",
       cell: (row) => (
@@ -190,7 +190,7 @@ export function BranchesOverviewTable({
     <Card className="mb-6">
       <CardHeader>
         <div>
-          <CardTitle>Branch Overview</CardTitle>
+          <CardTitle>Outlet Overview</CardTitle>
           <p className="mt-1 text-xs text-[var(--color-text-muted)]">
             {PERIOD_HINT[period] ?? PERIOD_HINT.month}
           </p>
@@ -210,7 +210,7 @@ export function BranchesOverviewTable({
         <div className="md:hidden">
           {branches.length === 0 ? (
             <div className="px-5 py-10 text-center text-sm text-[var(--color-text-muted)]">
-              No branches yet. Add a branch to start tracking workforce
+              No outlets yet. Add an outlet to start tracking workforce
               distribution.
             </div>
           ) : (
@@ -265,9 +265,9 @@ export function BranchesOverviewTable({
             getRowKey={(row) => row.id}
             empty={{
               icon: Building2,
-              title: "No branches yet",
+              title: "No outlets yet",
               description:
-                "Add a branch to start tracking workforce distribution.",
+                "Add an outlet to start tracking workforce distribution.",
             }}
           />
         </div>
@@ -279,7 +279,7 @@ export function BranchesOverviewTable({
           }}
           description={
             pendingDelete
-              ? `Delete branch “${pendingDelete.name}”? This cannot be undone.`
+              ? `Delete outlet “${pendingDelete.name}”? This cannot be undone.`
               : undefined
           }
           isLoading={deleting}

@@ -50,7 +50,7 @@ export function EmployeeOrganizationCard({
             label="Company"
             value={employee.dealershipName || dealershipName}
           />
-          <OrgRow icon={GitBranch} label="Branch" value={employee.branch} />
+          <OrgRow icon={GitBranch} label="Outlet" value={employee.branch} />
           <OrgRow
             icon={Layers}
             label="Department"

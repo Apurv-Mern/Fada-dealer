@@ -14,7 +14,7 @@ export function exportEmploymentActionsCsv(rows: EmploymentAction[]) {
     "Mobile",
     "Action Type",
     "Action Details",
-    "Branch",
+    "Outlet",
     "Designation",
     "Action Date",
     "Initiated By",

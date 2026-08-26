@@ -60,6 +60,47 @@ function formatDate(value: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Local date + time for popup detail rows (e.g. "19 Aug 2026, 2:45 PM"). */
+export function formatDateTime(value: string): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/** Unwrap detail GET — object, `{ data: item }`, or `{ data: [item] }`. */
+export function unwrapDetailRecord(body: unknown, id?: string): unknown {
+  const unwrapped = (() => {
+    try {
+      return unwrapApiData(body);
+    } catch {
+      return body;
+    }
+  })();
+
+  if (Array.isArray(unwrapped)) {
+    if (id) {
+      const match = unwrapped.find((item) => {
+        const record = asRecord(item);
+        return (
+          readString(record, "id") === id ||
+          String(record.id ?? "") === id
+        );
+      });
+      if (match) return match;
+    }
+    return unwrapped[0] ?? body;
+  }
+
+  return unwrapped ?? body;
+}
+
 import {
   collectCompletedLeavingSteps,
   nextLeavingExitStatus,
@@ -68,7 +109,10 @@ import {
 } from "@/features/employment-requests/leaving-steps";
 import {
   collectCompletedJoinSteps,
+  isDealerActor,
+  isEmployeeOwnedJoinStep,
   isJoinInvitationStatus,
+  nextDealerJoinStatus,
   nextJoinInvitationStatus,
   normalizeJoinStepStatus,
   type JoinInvitationStatus,
@@ -77,6 +121,9 @@ import {
 export {
   collectCompletedJoinSteps,
   collectCompletedLeavingSteps,
+  isDealerActor,
+  isEmployeeOwnedJoinStep,
+  nextDealerJoinStatus,
   nextJoinInvitationStatus,
   nextLeavingExitStatus,
   normalizeJoinStepStatus,
@@ -84,6 +131,42 @@ export {
   type JoinInvitationStatus,
   type LeavingExitStatus,
 };
+
+function latestStatusTimestamp(
+  history: LeavingHistoryItem[],
+  statusMatch: (normalized: string) => boolean,
+): string | undefined {
+  let latest: string | undefined;
+  let latestTime = -Infinity;
+  for (const item of history) {
+    const normalized = normalizeJoinStepStatus(item.status);
+    if (!statusMatch(normalized) || !item.createdAt) continue;
+    const t = new Date(item.createdAt).getTime();
+    if (!Number.isNaN(t) && t >= latestTime) {
+      latestTime = t;
+      latest = item.createdAt;
+    }
+  }
+  return latest;
+}
+
+function latestLeavingStatusTimestamp(
+  history: LeavingHistoryItem[],
+  statusMatch: (normalized: string) => boolean,
+): string | undefined {
+  let latest: string | undefined;
+  let latestTime = -Infinity;
+  for (const item of history) {
+    const normalized = normalizeLeavingStepStatus(item.status);
+    if (!statusMatch(normalized) || !item.createdAt) continue;
+    const t = new Date(item.createdAt).getTime();
+    if (!Number.isNaN(t) && t >= latestTime) {
+      latestTime = t;
+      latest = item.createdAt;
+    }
+  }
+  return latest;
+}
 
 function mapLeavingStatus(
   raw: string,
@@ -200,12 +283,28 @@ function mapInvitationRecord(raw: unknown): EmploymentRequest {
     "pending";
   const status = mapInvitationStatus(statusRaw, completedSteps);
 
-  const requestedAt = formatDate(
+  const history = mapLeavingHistory(raw);
+  const sendActor = resolveSendInvitationActor(raw, history, employeeName);
+
+  const createdAtRaw =
     readString(record, "createdAt") ||
-      readString(record, "requestedAt") ||
-      readString(record, "invitationSentAt") ||
-      readString(record, "updatedAt"),
+    readString(record, "requestedAt") ||
+    readString(record, "invitationSentAt") ||
+    readString(record, "updatedAt");
+
+  const requestedAt = formatDate(createdAtRaw);
+  const requestedAtDateTime = formatDateTime(createdAtRaw);
+
+  const acceptRaw = latestStatusTimestamp(
+    history,
+    (s) => s === "accept_invitation",
   );
+  const rejectRaw = latestStatusTimestamp(
+    history,
+    (s) => s === "reject_invitation",
+  );
+  const acceptedAt = acceptRaw ? formatDateTime(acceptRaw) : undefined;
+  const rejectedAt = rejectRaw ? formatDateTime(rejectRaw) : undefined;
 
   return {
     id,
@@ -216,12 +315,15 @@ function mapInvitationRecord(raw: unknown): EmploymentRequest {
     branchId,
     branchName,
     requestedAt,
+    requestedAtDateTime,
+    acceptedAt,
+    rejectedAt,
     status,
     canDecide: status === "Pending",
     canAdvanceWorkflow:
       status !== "Rejected" &&
       status !== "Approved" &&
-      nextJoinInvitationStatus(completedSteps) !== null,
+      nextDealerJoinStatus(completedSteps, sendActor.byDealer) !== null,
     completedSteps,
     departmentName,
     designationName,
@@ -240,6 +342,8 @@ function mapLeavingRecord(raw: unknown): EmploymentRequest {
   const outlet = nested(record, "outlet");
   const branch = nested(record, "branch");
   const assignment = nested(record, "assignment");
+  const assignmentDepartment = nested(assignment, "department");
+  const assignmentDesignation = nested(assignment, "designation");
   const completedSteps = collectCompletedLeavingSteps(raw);
 
   const id =
@@ -282,13 +386,23 @@ function mapLeavingRecord(raw: unknown): EmploymentRequest {
     "pending";
   const status = mapLeavingStatus(statusRaw, completedSteps);
 
-  const requestedAt = formatDate(
+  const history = mapLeavingHistory(raw);
+
+  const createdAtRaw =
     readString(record, "createdAt") ||
-      readString(record, "requestedAt") ||
-      readString(record, "resignationDate") ||
-      readString(record, "lastWorkingDay") ||
-      readString(record, "updatedAt"),
+    readString(record, "requestedAt") ||
+    readString(record, "resignationDate") ||
+    readString(record, "lastWorkingDay") ||
+    readString(record, "updatedAt");
+
+  const requestedAt = formatDate(createdAtRaw);
+  const requestedAtDateTime = formatDateTime(createdAtRaw);
+
+  const acceptRaw = latestLeavingStatusTimestamp(
+    history,
+    (s) => s === "accept_resignation",
   );
+  const acceptedAt = acceptRaw ? formatDateTime(acceptRaw) : undefined;
 
   const resignationDate =
     formatDate(
@@ -305,6 +419,16 @@ function mapLeavingRecord(raw: unknown): EmploymentRequest {
     readString(record, "remarks") ||
     undefined;
 
+  const departmentName =
+    readString(assignmentDepartment, "name") ||
+    readString(record, "departmentName") ||
+    undefined;
+
+  const designationName =
+    readString(assignmentDesignation, "name") ||
+    readString(record, "designationName") ||
+    undefined;
+
   return {
     id,
     employeeName,
@@ -314,6 +438,8 @@ function mapLeavingRecord(raw: unknown): EmploymentRequest {
     branchId,
     branchName,
     requestedAt,
+    requestedAtDateTime,
+    acceptedAt,
     status,
     canDecide: status === "Pending",
     canAdvanceWorkflow:
@@ -321,6 +447,8 @@ function mapLeavingRecord(raw: unknown): EmploymentRequest {
       status !== "Approved" &&
       nextLeavingExitStatus(completedSteps) !== null,
     completedSteps,
+    departmentName,
+    designationName,
     resignationDate: resignationDate === "—" ? undefined : resignationDate,
     lastWorkingDay: lastWorkingDay === "—" ? undefined : lastWorkingDay,
     reason: reason || undefined,
@@ -332,12 +460,37 @@ export function mapApiLeaving(raw: unknown): EmploymentRequest {
   return mapLeavingRecord(raw);
 }
 
+function readActionUserBy(row: Record<string, unknown>): string | undefined {
+  const value =
+    readString(row, "actionUserBy") ||
+    readString(row, "actionBy") ||
+    readString(row, "actedBy");
+  return value || undefined;
+}
+
+function readActionUserName(row: Record<string, unknown>): string | undefined {
+  const nestedUser = nested(row, "user");
+  const nestedDealer = nested(row, "dealer");
+  const nestedEmployee = nested(row, "employee");
+  const nestedActionUser = nested(row, "actionUser");
+  const value =
+    readString(row, "actionUserName") ||
+    readString(row, "actorName") ||
+    readString(row, "name") ||
+    readString(nestedActionUser, "name") ||
+    readString(nestedUser, "name") ||
+    readString(nestedDealer, "name") ||
+    readString(nestedEmployee, "name");
+  return value || undefined;
+}
+
 export function mapLeavingHistory(raw: unknown): LeavingHistoryItem[] {
   const record = asRecord(raw);
   const keys = [
     "history",
     "statusHistory",
     "statuses",
+    "invitationStatuses",
     "leavingStatuses",
     "employeeEmployerStatus",
   ];
@@ -358,10 +511,63 @@ export function mapLeavingHistory(raw: unknown): LeavingHistoryItem[] {
           readString(row, "createdAt") ||
           readString(row, "updatedAt") ||
           undefined,
+        actionUserBy: readActionUserBy(row),
+        actionUserName: readActionUserName(row),
       };
     });
   }
   return [];
+}
+
+/** Resolve whether send_invitation was dealer-initiated and who acted. */
+export function resolveSendInvitationActor(
+  raw: unknown,
+  history: LeavingHistoryItem[],
+  employeeName?: string,
+): { byDealer: boolean; actorName: string } {
+  const record = asRecord(raw);
+  const employee = nested(record, "employee");
+  const dealership = nested(record, "dealership");
+  const dealer = nested(record, "dealer");
+
+  const invitationSendBy =
+    readString(record, "invitationSendBy") ||
+    readString(record, "invitationSentBy") ||
+    "";
+
+  const sendRow = history.find(
+    (item) => normalizeJoinStepStatus(item.status) === "send_invitation",
+  );
+
+  let byDealer: boolean;
+  if (invitationSendBy) {
+    byDealer = isDealerActor(invitationSendBy);
+  } else {
+    const statusRaw = normalizeJoinStepStatus(
+      readString(record, "status") || readString(record, "currentStatus"),
+    );
+    const topLevelBy =
+      statusRaw === "send_invitation" ? readActionUserBy(record) : undefined;
+    const actionUserBy = sendRow?.actionUserBy || topLevelBy || "";
+    byDealer = isDealerActor(actionUserBy);
+  }
+
+  const dealershipName =
+    readString(dealership, "name") ||
+    readString(dealer, "name") ||
+    readString(record, "dealershipName") ||
+    "Dealer";
+
+  const empName =
+    employeeName ||
+    readString(employee, "name") ||
+    "Employee";
+
+  const actorName = byDealer
+    ? sendRow?.actionUserName || dealershipName
+    : sendRow?.actionUserName || empName;
+
+  return { byDealer, actorName };
 }
 
 export function mapLeavingDetail(raw: unknown): LeavingDetail {
@@ -372,9 +578,19 @@ export function mapLeavingDetail(raw: unknown): LeavingDetail {
 }
 
 export function mapInvitationDetail(raw: unknown): InvitationDetail {
+  const base = mapInvitationRecord(raw);
+  const history = mapLeavingHistory(raw);
+  const sendActor = resolveSendInvitationActor(raw, history, base.employeeName);
   return {
-    ...mapInvitationRecord(raw),
-    history: mapLeavingHistory(raw),
+    ...base,
+    history,
+    sendInvitationByDealer: sendActor.byDealer,
+    sendInvitationActorName: sendActor.actorName,
+    canAdvanceWorkflow:
+      base.status !== "Rejected" &&
+      base.status !== "Approved" &&
+      nextDealerJoinStatus(base.completedSteps ?? [], sendActor.byDealer) !==
+        null,
   };
 }
 
@@ -653,7 +869,7 @@ export async function getLeavingDetail(id: string): Promise<LeavingDetail> {
   }
 
   const body = await apiFetch<unknown>(`/dealers/employer-leaving/${id}`);
-  return mapLeavingDetail(unwrapApiData(body) ?? body);
+  return mapLeavingDetail(unwrapDetailRecord(body, id));
 }
 
 export async function getLeavingSteps(): Promise<LeavingStep[]> {
@@ -673,7 +889,7 @@ export async function getInvitationDetail(id: string): Promise<InvitationDetail>
   }
 
   const body = await apiFetch<unknown>(`/dealers/employer-invitations/${id}`);
-  return mapInvitationDetail(unwrapApiData(body) ?? body);
+  return mapInvitationDetail(unwrapDetailRecord(body, id));
 }
 
 export async function getInvitationSteps(): Promise<LeavingStep[]> {
@@ -697,7 +913,7 @@ export async function sendEmployerInvitation(
     !input.designationId
   ) {
     throw new ApiError({
-      message: "Select branch, department, and designation",
+      message: "Select outlet, department, and designation",
       status: 422,
     });
   }
@@ -813,14 +1029,28 @@ export async function advanceLeavingStatus(
 export async function advanceInvitationStatus(
   request: EmploymentRequest,
   status: JoinInvitationStatus,
+  joiningDate?: string,
 ): Promise<void> {
   const completed = request.completedSteps ?? [];
   if (completed.includes(status)) {
     throw new Error("This join step is already completed");
   }
-  const expected = nextJoinInvitationStatus(completed);
+  const sendByDealer =
+    "sendInvitationByDealer" in request &&
+    typeof (request as InvitationDetail).sendInvitationByDealer === "boolean"
+      ? Boolean((request as InvitationDetail).sendInvitationByDealer)
+      : false;
+  if (isEmployeeOwnedJoinStep(status, sendByDealer)) {
+    throw new Error("This join step must be completed by the employee");
+  }
+  const expected = nextDealerJoinStatus(completed, sendByDealer);
   if (expected !== status) {
     throw new Error("Complete the previous join step first");
+  }
+
+  const date = (joiningDate ?? "").trim();
+  if (status === "joining_confirmed" && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error("Select a joining date");
   }
 
   if (isMockMode()) {
@@ -831,9 +1061,9 @@ export async function advanceInvitationStatus(
 
   await apiFetch(
     `/dealers/employer-invitations/${request.id}/status/${status}`,
-    {
-      method: "PUT",
-    },
+    status === "joining_confirmed"
+      ? { method: "PUT", body: { joiningDate: date } }
+      : { method: "PUT" },
   );
 }
 

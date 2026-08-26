@@ -34,8 +34,8 @@ export function EmployeesFilters({
   return (
     <>
       <Select
-        aria-label="Branch filter"
-        placeholder="All Branches"
+        aria-label="Outlet filter"
+        placeholder="All Outlets"
         value={branchId}
         onChange={onBranchChange}
         options={filterOptions.branches}

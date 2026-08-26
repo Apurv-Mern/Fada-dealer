@@ -36,6 +36,37 @@ function DetailRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
+function pickDisplayValue(primary?: string, fallback?: string): string {
+  if (primary && primary !== "—") return primary;
+  if (fallback && fallback !== "—") return fallback;
+  return primary ?? fallback ?? "—";
+}
+
+function mergeEmploymentRequest(
+  list: EmploymentRequest,
+  detail: EmploymentRequest | null | undefined,
+): EmploymentRequest {
+  if (!detail) return list;
+  return {
+    ...list,
+    ...detail,
+    employeeName: pickDisplayValue(detail.employeeName, list.employeeName),
+    fadaId: pickDisplayValue(detail.fadaId, list.fadaId),
+    branchName: pickDisplayValue(detail.branchName, list.branchName),
+    fromTo: pickDisplayValue(detail.fromTo, list.fromTo),
+    requestedAt: pickDisplayValue(detail.requestedAt, list.requestedAt),
+    departmentName: detail.departmentName || list.departmentName,
+    designationName: detail.designationName || list.designationName,
+    requestedAtDateTime:
+      detail.requestedAtDateTime || list.requestedAtDateTime,
+    acceptedAt: detail.acceptedAt || list.acceptedAt,
+    rejectedAt: detail.rejectedAt || list.rejectedAt,
+    resignationDate: detail.resignationDate || list.resignationDate,
+    lastWorkingDay: detail.lastWorkingDay || list.lastWorkingDay,
+    reason: detail.reason || list.reason,
+  };
+}
+
 export function EmploymentExitDialog({
   request,
   open,
@@ -110,10 +141,15 @@ function ExitDialogBody({
     };
   }, [request.id, reloadToken]);
 
-  const row = detail ?? request;
+  const row = mergeEmploymentRequest(request, detail);
   const completed = detail?.completedSteps ?? request.completedSteps ?? [];
   const nextStep = nextLeavingExitStatus(completed);
   const canAdvance = Boolean(detail?.canAdvanceWorkflow && nextStep);
+  const isRejected = row.status === "Rejected";
+  const showAcceptedAt =
+    Boolean(row.acceptedAt) &&
+    row.status !== "Rejected" &&
+    row.status !== "Pending";
 
   async function handleAdvance(status: LeavingExitStatus) {
     if (!detail) return;
@@ -179,7 +215,15 @@ function ExitDialogBody({
         <DetailRow label="Employee" value={row.employeeName} />
         <DetailRow label="FADA ID" value={row.fadaId} />
         <DetailRow label="Branch" value={row.branchName || row.fromTo} />
-        <DetailRow label="Requested" value={row.requestedAt} />
+        <DetailRow label="Department" value={row.departmentName} />
+        <DetailRow label="Designation" value={row.designationName} />
+        <DetailRow
+          label="Requested"
+          value={row.requestedAtDateTime || row.requestedAt}
+        />
+        {showAcceptedAt ? (
+          <DetailRow label="Resignation accepted" value={row.acceptedAt} />
+        ) : null}
         <DetailRow label="Resignation" value={row.resignationDate} />
         <DetailRow label="Last working day" value={row.lastWorkingDay} />
         <DetailRow label="Reason" value={row.reason} />
@@ -208,7 +252,7 @@ function ExitDialogBody({
         </div>
       ) : null}
 
-      {row.status !== "Rejected" ? (
+      {!isRejected ? (
         <ol className="space-y-3">
           {steps.map((step) => {
             const normalizedStatus = normalizeLeavingStepStatus(step.status);
@@ -259,29 +303,6 @@ function ExitDialogBody({
             );
           })}
         </ol>
-      ) : null}
-
-      {detail?.history.length ? (
-        <div>
-          <p className="mb-2 text-xs font-semibold tracking-wide text-[var(--color-text-muted)] uppercase">
-            History
-          </p>
-          <ul className="space-y-1.5 text-sm">
-            {detail.history.map((item) => (
-              <li
-                key={item.id}
-                className="flex justify-between gap-3 text-[var(--color-text-muted)]"
-              >
-                <span className="min-w-0 break-words">{item.status}</span>
-                <span className="shrink-0">
-                  {item.createdAt
-                    ? new Date(item.createdAt).toISOString().slice(0, 10)
-                    : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
       ) : null}
     </div>
   );

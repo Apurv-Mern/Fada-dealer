@@ -9,13 +9,13 @@ export function BranchesStats({ stats }: { stats: BranchStats }) {
   return (
     <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard
-        label="Total Branches"
+        label="Total Outlets"
         value={stats.totalBranches}
         icon={Building2}
         tone="orange"
       />
       <StatCard
-        label="Active Branches"
+        label="Active Outlets"
         value={stats.activeBranches}
         icon={Building2}
         tone="green"

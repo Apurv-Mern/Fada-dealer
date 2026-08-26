@@ -65,7 +65,7 @@ export function DealershipBusinessDetailsCard({
             value={String(profile.allEmployees ?? 0)}
           />
           <Row
-            label="Active Branches"
+            label="Active Outlets"
             value={String(profile.totalOutlets ?? 0)}
           />
           <Row label="City" value={<ProfileFieldValue value={profile.city} />} />

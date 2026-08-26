@@ -217,7 +217,7 @@ export function EmployeesAddDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? "Edit Employee" : "Add Employee"}
-      description="FADA ID holder — linked to a company, branch and role."
+      description="FADA ID holder — linked to a company, outlet and role."
       className="max-h-[min(90dvh,48rem)] max-w-2xl"
     >
       {open ? (
@@ -321,8 +321,8 @@ function EmployeeForm({
     if (!form.outletId.trim()) {
       toast.error(
         hasBranches
-          ? "Select a branch"
-          : "Create a branch first, then add the employee",
+          ? "Select an outlet"
+          : "Create an outlet first, then add the employee",
       );
       return;
     }
@@ -526,7 +526,7 @@ function EmployeeForm({
       <FormSection
         icon={Building2}
         title="Assignment"
-        description="Company and branch this employee reports to."
+        description="Company and outlet this employee reports to."
         tone="assignment"
       >
         <div>
@@ -543,7 +543,7 @@ function EmployeeForm({
         {isEdit ? (
           <div>
             <FieldLabel htmlFor={`${baseId}-branch`} hint="Read-only">
-              Branch
+              Outlet
             </FieldLabel>
             <Input
               id={`${baseId}-branch`}
@@ -556,7 +556,7 @@ function EmployeeForm({
           <>
             <MasterChipSelect
               id={`${baseId}-branch`}
-              label="Branch"
+              label="Outlet"
               required
               className="w-full min-w-0"
               compact
@@ -564,21 +564,21 @@ function EmployeeForm({
               value={form.outletId}
               onChange={(value) => update("outletId", value)}
               disabled={!hasBranches}
-              placeholder={hasBranches ? "Search branches" : "No branches yet"}
-              searchAriaLabel="Branch"
+              placeholder={hasBranches ? "Search outlets" : "No outlets yet"}
+              searchAriaLabel="Outlet"
             />
             {!hasBranches ? (
               <p
                 className="text-xs text-[var(--color-text-muted)]"
                 role="status"
               >
-                This company has no branch yet.{" "}
+                This company has no outlet yet.{" "}
                 <Link
                   href={routes.branches}
                   className="font-medium text-[var(--color-primary)] underline-offset-2 hover:underline"
                   onClick={() => onOpenChange(false)}
                 >
-                  Create a branch
+                  Create an outlet
                 </Link>{" "}
                 first, then add the employee.
               </p>
