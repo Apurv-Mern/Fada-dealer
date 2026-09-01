@@ -301,7 +301,7 @@ function mapInvitationRecord(raw: unknown): EmploymentRequest {
   );
   const rejectRaw = latestStatusTimestamp(
     history,
-    (s) => s === "reject_invitation",
+    (s) => s === "reject_invitation" || s === "rejected",
   );
   const acceptedAt = acceptRaw ? formatDateTime(acceptRaw) : undefined;
   const rejectedAt = rejectRaw ? formatDateTime(rejectRaw) : undefined;
@@ -402,7 +402,12 @@ function mapLeavingRecord(raw: unknown): EmploymentRequest {
     history,
     (s) => s === "accept_resignation",
   );
+  const rejectedRaw = latestLeavingStatusTimestamp(
+    history,
+    (s) => s === "reject_resignation" || s === "rejected",
+  );
   const acceptedAt = acceptRaw ? formatDateTime(acceptRaw) : undefined;
+  const rejectedAt = rejectedRaw ? formatDateTime(rejectedRaw) : undefined;
 
   const resignationDate =
     formatDate(
@@ -440,6 +445,7 @@ function mapLeavingRecord(raw: unknown): EmploymentRequest {
     requestedAt,
     requestedAtDateTime,
     acceptedAt,
+    rejectedAt,
     status,
     canDecide: status === "Pending",
     canAdvanceWorkflow:
@@ -974,9 +980,25 @@ export async function updateInvitationStatus(
     return;
   }
 
-  await apiFetch(`/dealers/employer-invitations/${id}/status/${action}`, {
-    method: "PATCH",
-  });
+  try {
+    await apiFetch(`/dealers/employer-invitations/${id}/status/${action}`, {
+      method: "PATCH",
+    });
+  } catch (err) {
+    // Mid-workflow reject may only be allowed via PUT reject_invitation.
+    if (
+      action === "reject" &&
+      err instanceof ApiError &&
+      err.status === 400
+    ) {
+      await apiFetch(
+        `/dealers/employer-invitations/${id}/status/reject_invitation`,
+        { method: "PUT" },
+      );
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function updateLeavingStatus(

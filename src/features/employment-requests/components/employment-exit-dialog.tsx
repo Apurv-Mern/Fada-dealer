@@ -4,12 +4,20 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 
 import { SectionError } from "@/components/layout/section-error";
-import { Badge, Button, Dialog, Skeleton, toast } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  ConfirmDialog,
+  Dialog,
+  Skeleton,
+  toast,
+} from "@/components/ui";
 import { toAuthErrorMessage } from "@/features/auth/client-auth";
 import {
   advanceLeavingStatus,
   getLeavingDetail,
   getLeavingSteps,
+  updateRequestStatus,
 } from "@/features/employment-requests/api";
 import { requestStatusBadge } from "@/features/employment-requests/components/employment-requests-table";
 import {
@@ -120,6 +128,8 @@ function ExitDialogBody({
   const [error, setError] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState<LeavingExitStatus | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,6 +185,28 @@ function ExitDialogBody({
       setError(toAuthErrorMessage(err, "Failed to update exit step"));
     } finally {
       setAdvancing(null);
+    }
+  }
+
+  async function confirmStepReject() {
+    if (!detail) return;
+    setRejecting(true);
+    try {
+      await updateRequestStatus(detail, "reject");
+      toast.success("Request rejected");
+      setRejectConfirmOpen(false);
+      const [nextDetail, nextSteps] = await Promise.all([
+        getLeavingDetail(detail.id),
+        getLeavingSteps(),
+      ]);
+      setDetail(nextDetail);
+      setSteps(nextSteps);
+      setError(null);
+      onAdvanced?.();
+    } catch (err) {
+      setError(toAuthErrorMessage(err, "Failed to reject request"));
+    } finally {
+      setRejecting(false);
     }
   }
 
@@ -287,16 +319,33 @@ function ExitDialogBody({
                       </p>
                     ) : null}
                   </div>
-                  {isActionable ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={!isNext || advancing !== null}
-                      isLoading={advancing === normalizedStatus}
-                      onClick={() => void handleAdvance(normalizedStatus)}
-                    >
-                      {done ? "Done" : "Mark done"}
+                  {done ? (
+                    <Button type="button" size="sm" disabled>
+                      Done
                     </Button>
+                  ) : isActionable ? (
+                    <div className="flex shrink-0 flex-col gap-1 sm:flex-row">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!isNext || advancing !== null || rejecting}
+                        isLoading={advancing === normalizedStatus}
+                        onClick={() => void handleAdvance(normalizedStatus)}
+                      >
+                        {normalizedStatus === "accept_resignation"
+                          ? "Accept"
+                          : "Mark done"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={!isNext || advancing !== null || rejecting}
+                        onClick={() => setRejectConfirmOpen(true)}
+                      >
+                        Reject
+                      </Button>
+                    </div>
                   ) : null}
                 </div>
               </li>
@@ -304,6 +353,20 @@ function ExitDialogBody({
           })}
         </ol>
       ) : null}
+
+      <ConfirmDialog
+        open={rejectConfirmOpen}
+        onOpenChange={(open) => {
+          if (rejecting) return;
+          setRejectConfirmOpen(open);
+        }}
+        title="Reject request?"
+        description={`Reject exit request for “${row.employeeName}”?`}
+        confirmLabel="Reject"
+        onConfirm={confirmStepReject}
+        isLoading={rejecting}
+        overlayClassName="z-[60]"
+      />
     </div>
   );
 }

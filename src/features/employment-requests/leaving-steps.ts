@@ -56,7 +56,8 @@ export function collectCompletedLeavingSteps(raw: unknown): string[] {
     statusRaw &&
     statusRaw !== "pending" &&
     statusRaw !== "accepted" &&
-    statusRaw !== "rejected"
+    statusRaw !== "rejected" &&
+    statusRaw !== "reject_resignation"
   ) {
     steps.add(statusRaw);
   }
@@ -82,7 +83,8 @@ export function collectCompletedLeavingSteps(raw: unknown): string[] {
         slug !== "pending" &&
         slug !== "accepted" &&
         slug !== "rejected" &&
-        slug !== "leaving"
+        slug !== "leaving" &&
+        slug !== "reject_resignation"
       ) {
         steps.add(slug);
       }

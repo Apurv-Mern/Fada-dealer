@@ -7,6 +7,7 @@ import { SectionError } from "@/components/layout/section-error";
 import {
   Badge,
   Button,
+  ConfirmDialog,
   Dialog,
   Input,
   Skeleton,
@@ -17,6 +18,7 @@ import {
   advanceInvitationStatus,
   getInvitationDetail,
   getInvitationSteps,
+  updateRequestStatus,
 } from "@/features/employment-requests/api";
 import { requestStatusBadge } from "@/features/employment-requests/components/employment-requests-table";
 import {
@@ -195,6 +197,8 @@ function JoinDialogBody({
   const [reloadToken, setReloadToken] = useState(0);
   const [joiningDateOpen, setJoiningDateOpen] = useState(false);
   const [joiningDate, setJoiningDate] = useState("");
+  const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -275,6 +279,28 @@ function JoinDialogBody({
       return;
     }
     void handleAdvance(status);
+  }
+
+  async function confirmStepReject() {
+    if (!detail) return;
+    setRejecting(true);
+    try {
+      await updateRequestStatus(detail, "reject");
+      toast.success("Request rejected");
+      setRejectConfirmOpen(false);
+      const [nextDetail, nextSteps] = await Promise.all([
+        getInvitationDetail(detail.id),
+        getInvitationSteps(),
+      ]);
+      setDetail(nextDetail);
+      setSteps(nextSteps);
+      setError(null);
+      onAdvanced?.();
+    } catch (err) {
+      setError(toAuthErrorMessage(err, "Failed to reject request"));
+    } finally {
+      setRejecting(false);
+    }
   }
 
   if (loading && !detail) {
@@ -457,15 +483,32 @@ function JoinDialogBody({
                         <Badge variant="warning">Pending</Badge>
                       ) : null
                     ) : isActionable ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={!isNext || advancing !== null}
-                        isLoading={advancing === normalizedStatus}
-                        onClick={() => onMarkDoneClick(normalizedStatus)}
-                      >
-                        Mark done
-                      </Button>
+                      <div className="flex shrink-0 flex-col gap-1 sm:flex-row">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={
+                            !isNext || advancing !== null || rejecting
+                          }
+                          isLoading={advancing === normalizedStatus}
+                          onClick={() => onMarkDoneClick(normalizedStatus)}
+                        >
+                          {normalizedStatus === "accept_invitation"
+                            ? "Accept"
+                            : "Mark done"}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={
+                            !isNext || advancing !== null || rejecting
+                          }
+                          onClick={() => setRejectConfirmOpen(true)}
+                        >
+                          Reject
+                        </Button>
+                      </div>
                     ) : null}
                   </div>
                 </li>
@@ -474,6 +517,20 @@ function JoinDialogBody({
           </ol>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={rejectConfirmOpen}
+        onOpenChange={(open) => {
+          if (rejecting) return;
+          setRejectConfirmOpen(open);
+        }}
+        title="Reject request?"
+        description={`Reject join request for “${row.employeeName}”?`}
+        confirmLabel="Reject"
+        onConfirm={confirmStepReject}
+        isLoading={rejecting}
+        overlayClassName="z-[60]"
+      />
 
       <Dialog
         open={joiningDateOpen}

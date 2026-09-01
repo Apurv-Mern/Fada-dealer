@@ -474,6 +474,8 @@ export function updateMockRequestStatus(
     if (row.id !== id) return row;
     const isExitAccept = status === "Approved" && row.requestType === "Exit";
     const isJoinAccept = status === "Approved" && row.requestType === "Join";
+    const isRejected = status === "Rejected";
+    const rejectedAt = isRejected ? new Date().toISOString() : undefined;
     const nextCompleted = isExitAccept
       ? [...new Set([...(row.completedSteps ?? []), "accept_resignation"])]
       : isJoinAccept
@@ -518,18 +520,44 @@ export function updateMockRequestStatus(
       mockInvitationExtra[id] = { ...extra, history };
     }
 
-    if (status === "Rejected" && row.requestType === "Join") {
+    if (isRejected && row.requestType === "Join") {
       const extra = mockInvitationExtra[id] ?? { history: [] };
+      const alreadyRejected = extra.history.some(
+        (item) =>
+          item.status === "reject_invitation" || item.status === "rejected",
+      );
       mockInvitationExtra[id] = {
         ...extra,
-        history: [
-          ...extra.history,
-          {
-            id: `h-${id}-rejected`,
-            status: "rejected",
-            createdAt: new Date().toISOString(),
-          },
-        ],
+        history: alreadyRejected
+          ? extra.history
+          : [
+              ...extra.history,
+              {
+                id: `h-${id}-reject_invitation`,
+                status: "reject_invitation",
+                createdAt: rejectedAt!,
+              },
+            ],
+      };
+    }
+
+    if (isRejected && row.requestType === "Exit") {
+      const extra = mockLeavingExtra[id] ?? { history: [] };
+      const alreadyRejected = extra.history.some(
+        (item) => item.status === "reject_resignation",
+      );
+      mockLeavingExtra[id] = {
+        ...extra,
+        history: alreadyRejected
+          ? extra.history
+          : [
+              ...extra.history,
+              {
+                id: `h-${id}-reject_resignation`,
+                status: "reject_resignation",
+                createdAt: rejectedAt!,
+              },
+            ],
       };
     }
 
@@ -543,6 +571,7 @@ export function updateMockRequestStatus(
       canDecide: false,
       canAdvanceWorkflow: isExitAccept || isJoinAccept,
       completedSteps: nextCompleted,
+      rejectedAt: isRejected ? rejectedAt : row.rejectedAt,
     };
   });
 }

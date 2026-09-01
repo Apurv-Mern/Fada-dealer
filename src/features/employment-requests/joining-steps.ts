@@ -95,7 +95,8 @@ export function collectCompletedJoinSteps(raw: unknown): string[] {
     statusRaw !== "pending" &&
     statusRaw !== "accepted" &&
     statusRaw !== "rejected" &&
-    statusRaw !== "verified"
+    statusRaw !== "verified" &&
+    statusRaw !== "reject_invitation"
   ) {
     steps.add(statusRaw);
   }
@@ -121,7 +122,8 @@ export function collectCompletedJoinSteps(raw: unknown): string[] {
         slug !== "pending" &&
         slug !== "accepted" &&
         slug !== "rejected" &&
-        slug !== "verified"
+        slug !== "verified" &&
+        slug !== "reject_invitation"
       ) {
         steps.add(slug);
       }

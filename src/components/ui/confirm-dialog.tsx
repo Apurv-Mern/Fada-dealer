@@ -12,6 +12,8 @@ export type ConfirmDialogProps = {
   cancelLabel?: string;
   onConfirm: () => void | Promise<void>;
   isLoading?: boolean;
+  /** Raise above a parent dialog when nesting (e.g. reject from join/exit popup). */
+  overlayClassName?: string;
 };
 
 export function ConfirmDialog({
@@ -23,6 +25,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   onConfirm,
   isLoading = false,
+  overlayClassName,
 }: ConfirmDialogProps) {
   async function handleConfirm() {
     await onConfirm();
@@ -38,6 +41,7 @@ export function ConfirmDialog({
       title={title}
       description={description}
       className="max-w-md"
+      overlayClassName={overlayClassName}
     >
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button

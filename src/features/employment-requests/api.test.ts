@@ -23,6 +23,9 @@ import {
   mapLeavingSteps,
   resolveSendInvitationActor,
   unwrapDetailRecord,
+  updateInvitationStatus,
+  updateLeavingStatus,
+  updateRequestStatus,
 } from "@/features/employment-requests/api";
 import {
   isDealerActor,
@@ -932,5 +935,83 @@ describe("unwrapDetailRecord", () => {
     }) as { employee: { name: string } };
 
     expect(record.employee.name).toBe("First");
+  });
+});
+
+describe("reject mid-workflow", () => {
+  afterEach(() => {
+    resetEmploymentRequestsApiState();
+  });
+
+  it("rejects In Review join from accept_invitation step", async () => {
+    const detail = await getInvitationDetail("inv-2");
+    expect(detail.status).toBe("In Review");
+    expect(detail.canAdvanceWorkflow).toBe(true);
+
+    await updateRequestStatus(detail, "reject");
+
+    const rejected = await getInvitationDetail("inv-2");
+    expect(rejected.status).toBe("Rejected");
+    expect(rejected.canDecide).toBe(false);
+    expect(rejected.canAdvanceWorkflow).toBe(false);
+    expect(rejected.rejectedAt).toBeTruthy();
+    expect(
+      rejected.history.some(
+        (item) =>
+          item.status === "reject_invitation" || item.status === "rejected",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects Accepted exit from accept_resignation workflow", async () => {
+    const detail = await getLeavingDetail("leave-2");
+    expect(detail.status).toBe("Accepted");
+    expect(detail.completedSteps).toContain("accept_resignation");
+
+    await updateRequestStatus(detail, "reject");
+
+    const rejected = await getLeavingDetail("leave-2");
+    expect(rejected.status).toBe("Rejected");
+    expect(rejected.canDecide).toBe(false);
+    expect(rejected.canAdvanceWorkflow).toBe(false);
+    expect(rejected.rejectedAt).toBeTruthy();
+    expect(
+      rejected.history.some((item) => item.status === "reject_resignation"),
+    ).toBe(true);
+  });
+
+  it("falls back to PUT reject_invitation when PATCH reject returns 400", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    vi.mocked(apiFetch)
+      .mockRejectedValueOnce(
+        new ApiError({ message: "Only pending can be rejected", status: 400 }),
+      )
+      .mockResolvedValueOnce({ success: true });
+
+    await updateInvitationStatus("42", "reject");
+
+    expect(apiFetch).toHaveBeenNthCalledWith(
+      1,
+      "/dealers/employer-invitations/42/status/reject",
+      { method: "PATCH" },
+    );
+    expect(apiFetch).toHaveBeenNthCalledWith(
+      2,
+      "/dealers/employer-invitations/42/status/reject_invitation",
+      { method: "PUT" },
+    );
+  });
+
+  it("uses PATCH reject for leaving without PUT fallback", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    vi.mocked(apiFetch).mockResolvedValue({ success: true });
+
+    await updateLeavingStatus("9", "reject");
+
+    expect(apiFetch).toHaveBeenCalledWith(
+      "/dealers/employer-leaving/9/status/reject",
+      { method: "PATCH" },
+    );
+    expect(apiFetch).toHaveBeenCalledTimes(1);
   });
 });
