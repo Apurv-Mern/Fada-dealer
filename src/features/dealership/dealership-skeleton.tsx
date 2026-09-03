@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui";
 import { profileGridCardClass } from "@/features/dealership/components/profile-grid-card";
+import { SHOW_ACTIVITY_OVERVIEW } from "@/features/dealership/feature-flags";
 
 export function DealershipSkeleton() {
   return (
@@ -41,20 +42,22 @@ export function DealershipSkeleton() {
         ))}
       </div>
 
-      <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-        <Skeleton className="mb-4 h-5 w-40" />
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex gap-3">
-              <Skeleton className="size-10 shrink-0 rounded-full" />
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-16" />
-                <Skeleton className="h-7 w-10" />
+      {SHOW_ACTIVITY_OVERVIEW ? (
+        <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <Skeleton className="mb-4 h-5 w-40" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex gap-3">
+                <Skeleton className="size-10 shrink-0 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-7 w-10" />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

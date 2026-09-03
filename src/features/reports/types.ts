@@ -59,14 +59,107 @@ export type ReportResult = {
   pageSize: number;
 };
 
+export const DEFAULT_REPORT_PAGE_SIZE = 50;
+
+export type ReportFilterField =
+  | "fromDate"
+  | "toDate"
+  | "departmentId"
+  | "designationId"
+  | "employmentStatus"
+  | "fadaIdStatus"
+  | "profileStatus"
+  | "verificationStatus"
+  | "membershipStatus"
+  | "stage"
+  | "eventType";
+
+export type ReportUrlQuery = {
+  fromDate: string;
+  toDate: string;
+  departmentId: string;
+  designationId: string;
+  employmentStatus: string;
+  fadaIdStatus: string;
+  profileStatus: string;
+  verificationStatus: string;
+  membershipStatus: string;
+  stage: string;
+  eventType: string;
+  page: number;
+  pageSize: number;
+};
+
+export function emptyReportUrlQuery(
+  pageSize = DEFAULT_REPORT_PAGE_SIZE,
+): ReportUrlQuery {
+  return {
+    fromDate: "",
+    toDate: "",
+    departmentId: "",
+    designationId: "",
+    employmentStatus: "",
+    fadaIdStatus: "",
+    profileStatus: "",
+    verificationStatus: "",
+    membershipStatus: "",
+    stage: "",
+    eventType: "",
+    page: 1,
+    pageSize,
+  };
+}
+
 export type ReportQueryParams = {
   fromDate?: string;
   toDate?: string;
   departmentId?: string;
   designationId?: string;
+  employmentStatus?: string;
+  fadaIdStatus?: string;
+  profileStatus?: string;
+  verificationStatus?: string;
+  membershipStatus?: string;
+  stage?: string;
+  eventType?: string;
   page?: number;
   pageSize?: number;
 };
+
+export const EMPLOYMENT_STATUS_OPTIONS: ReportFilterOption[] = [
+  { label: "Active", value: "active" },
+  { label: "Inactive", value: "inactive" },
+  { label: "Pending", value: "pending" },
+  { label: "Completed", value: "completed" },
+];
+
+export const FADA_ID_STATUS_OPTIONS: ReportFilterOption[] = [
+  { label: "None", value: "none" },
+  { label: "Created", value: "created" },
+  { label: "Active", value: "active" },
+];
+
+export const PROFILE_STATUS_OPTIONS: ReportFilterOption[] = [
+  { label: "Completed", value: "completed" },
+  { label: "Incomplete", value: "incomplete" },
+];
+
+export const VERIFICATION_STATUS_OPTIONS: ReportFilterOption[] = [
+  { label: "Pending", value: "pending" },
+  { label: "Verified", value: "verified" },
+  { label: "Rejected", value: "rejected" },
+];
+
+export const MEMBERSHIP_STATUS_OPTIONS: ReportFilterOption[] = [
+  { label: "Active", value: "active" },
+  { label: "Pending", value: "pending" },
+];
+
+export const EVENT_TYPE_OPTIONS: ReportFilterOption[] = [
+  { label: "New joiner", value: "new_joiner" },
+  { label: "Exit", value: "exit" },
+  { label: "Status change", value: "status_change" },
+];
 
 export type ReportPageData = {
   filters: ReportFiltersMetadata;

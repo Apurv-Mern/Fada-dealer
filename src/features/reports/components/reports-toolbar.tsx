@@ -4,24 +4,41 @@ import { Filter, X } from "lucide-react";
 
 import { Badge, Button, Sheet } from "@/components/ui";
 import { ReportsFilters } from "@/features/reports/components/reports-filters";
-import type { ReportFiltersMetadata } from "@/features/reports/types";
+import { formatSummaryLabel } from "@/features/reports/map-report";
+import type {
+  DealerReportKey,
+  ReportFilterField,
+  ReportFiltersMetadata,
+  ReportUrlQuery,
+} from "@/features/reports/types";
+import {
+  EMPLOYMENT_STATUS_OPTIONS,
+  EVENT_TYPE_OPTIONS,
+  FADA_ID_STATUS_OPTIONS,
+  MEMBERSHIP_STATUS_OPTIONS,
+  PROFILE_STATUS_OPTIONS,
+  VERIFICATION_STATUS_OPTIONS,
+} from "@/features/reports/types";
 
 export type ReportsToolbarProps = {
-  fromDate: string;
-  toDate: string;
-  departmentId: string;
-  designationId: string;
+  reportKey: DealerReportKey;
+  applied: ReportUrlQuery;
+  draft: ReportUrlQuery;
   filterOptions: ReportFiltersMetadata;
   filtersOpen: boolean;
   onFiltersOpenChange: (open: boolean) => void;
-  onFromDateChange: (value: string) => void;
-  onToDateChange: (value: string) => void;
-  onDepartmentChange: (value: string) => void;
-  onDesignationChange: (value: string) => void;
-  onGenerate: () => void;
+  onDraftChange: (patch: Partial<ReportUrlQuery>) => void;
+  onApply: () => void;
   onClearFilters: () => void;
-  onRemoveChip: (key: "fromDate" | "toDate" | "departmentId" | "designationId") => void;
+  onRemoveChip: (key: ReportFilterField) => void;
 };
+
+function labelForOption(
+  options: { label: string; value: string }[],
+  value: string,
+): string | undefined {
+  return options.find((item) => item.value === value)?.label;
+}
 
 function FilterChip({
   label,
@@ -46,52 +63,84 @@ function FilterChip({
 }
 
 export function ReportsToolbar({
-  fromDate,
-  toDate,
-  departmentId,
-  designationId,
+  reportKey,
+  applied,
+  draft,
   filterOptions,
   filtersOpen,
   onFiltersOpenChange,
-  onFromDateChange,
-  onToDateChange,
-  onDepartmentChange,
-  onDesignationChange,
-  onGenerate,
+  onDraftChange,
+  onApply,
   onClearFilters,
   onRemoveChip,
 }: ReportsToolbarProps) {
   const departmentLabel = filterOptions.departments.find(
-    (item) => item.value === departmentId,
+    (item) => item.value === applied.departmentId,
   )?.label;
   const designationLabel = filterOptions.designations.find(
-    (item) => item.value === designationId,
+    (item) => item.value === applied.designationId,
   )?.label;
 
-  const chips: Array<{
-    key: "fromDate" | "toDate" | "departmentId" | "designationId";
-    label: string;
-  }> = [];
-  if (fromDate) chips.push({ key: "fromDate", label: `From ${fromDate}` });
-  if (toDate) chips.push({ key: "toDate", label: `To ${toDate}` });
-  if (departmentId && departmentLabel) {
+  const chips: Array<{ key: ReportFilterField; label: string }> = [];
+
+  if (applied.fromDate) {
+    chips.push({ key: "fromDate", label: `From ${applied.fromDate}` });
+  }
+  if (applied.toDate) {
+    chips.push({ key: "toDate", label: `To ${applied.toDate}` });
+  }
+  if (applied.departmentId && departmentLabel) {
     chips.push({ key: "departmentId", label: departmentLabel });
   }
-  if (designationId && designationLabel) {
+  if (applied.designationId && designationLabel) {
     chips.push({ key: "designationId", label: designationLabel });
+  }
+  if (applied.employmentStatus) {
+    const label = labelForOption(
+      EMPLOYMENT_STATUS_OPTIONS,
+      applied.employmentStatus,
+    );
+    if (label) chips.push({ key: "employmentStatus", label });
+  }
+  if (applied.fadaIdStatus) {
+    const label = labelForOption(FADA_ID_STATUS_OPTIONS, applied.fadaIdStatus);
+    if (label) chips.push({ key: "fadaIdStatus", label });
+  }
+  if (applied.profileStatus) {
+    const label = labelForOption(PROFILE_STATUS_OPTIONS, applied.profileStatus);
+    if (label) chips.push({ key: "profileStatus", label });
+  }
+  if (applied.verificationStatus) {
+    const label = labelForOption(
+      VERIFICATION_STATUS_OPTIONS,
+      applied.verificationStatus,
+    );
+    if (label) chips.push({ key: "verificationStatus", label });
+  }
+  if (applied.membershipStatus) {
+    const label = labelForOption(
+      MEMBERSHIP_STATUS_OPTIONS,
+      applied.membershipStatus,
+    );
+    if (label) chips.push({ key: "membershipStatus", label });
+  }
+  if (applied.stage) {
+    chips.push({
+      key: "stage",
+      label: `Stage: ${formatSummaryLabel(applied.stage)}`,
+    });
+  }
+  if (applied.eventType) {
+    const label = labelForOption(EVENT_TYPE_OPTIONS, applied.eventType);
+    if (label) chips.push({ key: "eventType", label });
   }
 
   const filterControls = (
     <ReportsFilters
-      fromDate={fromDate}
-      toDate={toDate}
-      departmentId={departmentId}
-      designationId={designationId}
+      reportKey={reportKey}
+      draft={draft}
       filterOptions={filterOptions}
-      onFromDateChange={onFromDateChange}
-      onToDateChange={onToDateChange}
-      onDepartmentChange={onDepartmentChange}
-      onDesignationChange={onDesignationChange}
+      onDraftChange={onDraftChange}
     />
   );
 
@@ -110,8 +159,8 @@ export function ReportsToolbar({
             <Filter className="size-4" aria-hidden />
             Filters
           </Button>
-          <Button variant="secondary" onClick={onGenerate}>
-            Generate
+          <Button variant="secondary" onClick={onApply}>
+            Apply filters
           </Button>
           {chips.length > 0 ? (
             <Button variant="ghost" size="sm" onClick={onClearFilters}>
@@ -140,10 +189,10 @@ export function ReportsToolbar({
             className="w-full"
             onClick={() => {
               onFiltersOpenChange(false);
-              onGenerate();
+              onApply();
             }}
           >
-            Apply & generate
+            Apply filters
           </Button>
         </div>
       </Sheet>

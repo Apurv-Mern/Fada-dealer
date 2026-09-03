@@ -1,27 +1,24 @@
 import { Skeleton } from "@/components/ui";
-import { ReportsCatalogSkeleton } from "@/features/reports/components/reports-catalog";
+import { ReportsTabsSkeleton } from "@/features/reports/components/reports-tabs";
 
-export function ReportsSkeleton({ showViewer = false }: { showViewer?: boolean }) {
-  if (!showViewer) {
-    return (
-      <div aria-busy aria-label="Loading reports">
-        <div className="mb-6 space-y-2">
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-4 w-96 max-w-full" />
-        </div>
-        <ReportsCatalogSkeleton />
-      </div>
-    );
-  }
-
+export function ReportsSkeleton() {
   return (
-    <div aria-busy aria-label="Loading report">
+    <div aria-busy aria-label="Loading reports">
       <div className="mb-6 space-y-2">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-4 w-full max-w-xl" />
-        <div className="flex gap-2 pt-2">
-          <Skeleton className="h-10 w-28" />
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-4 w-96 max-w-full" />
+        <div className="flex justify-end gap-2 pt-2">
           <Skeleton className="h-10 w-24" />
+        </div>
+      </div>
+
+      <ReportsTabsSkeleton />
+
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <Skeleton className="h-4 w-full max-w-xl" />
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-20" />
         </div>
       </div>
 
@@ -31,7 +28,7 @@ export function ReportsSkeleton({ showViewer = false }: { showViewer?: boolean }
             <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
-        <Skeleton className="mt-3 h-10 w-24" />
+        <Skeleton className="mt-3 h-10 w-28" />
       </div>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

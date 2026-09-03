@@ -1,31 +1,33 @@
 import type {
-  EmployeeImportItem,
-  EmployeeImportRowError,
-} from "@/features/employees/types";
+  OutletImportItem,
+  OutletImportRowError,
+} from "@/features/branches/types";
 
-/** CSV headers matching Swagger DealerEmployeeImportItem. */
-export const EMPLOYEE_CSV_HEADERS = [
+/** CSV headers matching Swagger DealerOutletImportItem (+ optional fields). */
+export const OUTLET_CSV_HEADERS = [
   "name",
-  "email",
-  "phone",
-  "designation",
-  "department",
-  "outletCode",
-  "startDate",
+  "brandName",
+  "outletFunctions",
+  "manager",
+  "pincode",
+  "city",
+  "state",
+  "address",
 ] as const;
 
-const OUTLET_CODE_PATTERN = /^OT[1-9][0-9]{5}$/;
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const REQUIRED_HEADERS = ["name", "brandName", "outletFunctions"] as const;
+
+const PINCODE_PATTERN = /^\d{6}$/;
 
 const EXAMPLE_ROW = [
-  "John Doe",
-  "john@example.com",
-  "9876543210",
-  "Sales Executive",
-  "Sales",
-  "OT583721",
-  "2026-01-15",
+  "Sanganer",
+  "Maruti",
+  "Sales|Service",
+  "Shambhu",
+  "303908",
+  "Jaipur",
+  "Rajasthan",
+  "jaipur, kotkhawada",
 ] as const;
 
 function escapeCsvCell(value: string): string {
@@ -71,21 +73,28 @@ export function parseCsvLine(line: string): string[] {
   return cells;
 }
 
-/** Build UTF-8 CSV text for the employee import template. */
-export function buildEmployeeImportTemplateCsv(): string {
-  const header = EMPLOYEE_CSV_HEADERS.join(",");
+function parseOutletFunctions(raw: string): string[] {
+  return raw
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+/** Build UTF-8 CSV text for the outlet import template. */
+export function buildOutletImportTemplateCsv(): string {
+  const header = OUTLET_CSV_HEADERS.join(",");
   const row = EXAMPLE_ROW.map(escapeCsvCell).join(",");
   return `${header}\n${row}\n`;
 }
 
-/** Trigger a browser download of `employee-import-template.csv`. */
-export function downloadEmployeeImportTemplate(): void {
-  const csv = buildEmployeeImportTemplateCsv();
+/** Trigger a browser download of `outlet-import-template.csv`. */
+export function downloadOutletImportTemplate(): void {
+  const csv = buildOutletImportTemplateCsv();
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "employee-import-template.csv";
+  anchor.download = "outlet-import-template.csv";
   anchor.rel = "noopener";
   document.body.appendChild(anchor);
   anchor.click();
@@ -104,9 +113,9 @@ function readHeaderIndex(headers: string[], key: string): number {
 
 function validateImportRow(
   rowNumber: number,
-  values: Record<(typeof EMPLOYEE_CSV_HEADERS)[number], string>,
-): EmployeeImportRowError | null {
-  const missing = EMPLOYEE_CSV_HEADERS.filter((key) => !values[key].trim());
+  values: Record<(typeof OUTLET_CSV_HEADERS)[number], string>,
+): OutletImportRowError | null {
+  const missing = REQUIRED_HEADERS.filter((key) => !values[key].trim());
   if (missing.length > 0) {
     return {
       row: rowNumber,
@@ -114,21 +123,19 @@ function validateImportRow(
     };
   }
 
-  if (!EMAIL_PATTERN.test(values.email.trim())) {
-    return { row: rowNumber, message: "Invalid email address" };
-  }
-
-  if (!OUTLET_CODE_PATTERN.test(values.outletCode.trim())) {
+  const functions = parseOutletFunctions(values.outletFunctions);
+  if (functions.length === 0) {
     return {
       row: rowNumber,
-      message: "outletCode must match OT###### (e.g. OT583721)",
+      message: "outletFunctions must include at least one name (use Sales|Service)",
     };
   }
 
-  if (!DATE_PATTERN.test(values.startDate.trim())) {
+  const pincode = values.pincode.trim();
+  if (pincode && !PINCODE_PATTERN.test(pincode)) {
     return {
       row: rowNumber,
-      message: "startDate must be YYYY-MM-DD",
+      message: "pincode must be 6 digits",
     };
   }
 
@@ -136,23 +143,33 @@ function validateImportRow(
 }
 
 function rowToImportItem(
-  values: Record<(typeof EMPLOYEE_CSV_HEADERS)[number], string>,
-): EmployeeImportItem {
-  return {
+  values: Record<(typeof OUTLET_CSV_HEADERS)[number], string>,
+): OutletImportItem {
+  const item: OutletImportItem = {
     name: values.name.trim(),
-    email: values.email.trim(),
-    phone: values.phone.trim(),
-    designation: values.designation.trim(),
-    department: values.department.trim(),
-    outletCode: values.outletCode.trim(),
-    startDate: values.startDate.trim(),
+    brandName: values.brandName.trim(),
+    outletFunctions: parseOutletFunctions(values.outletFunctions),
   };
+
+  const manager = values.manager.trim();
+  const pincode = values.pincode.trim();
+  const city = values.city.trim();
+  const state = values.state.trim();
+  const address = values.address.trim();
+
+  if (manager) item.manager = manager;
+  if (pincode) item.pincode = pincode;
+  if (city) item.city = city;
+  if (state) item.state = state;
+  if (address) item.address = address;
+
+  return item;
 }
 
 /**
  * Light client check before upload: non-empty, looks like CSV, required headers present.
  */
-export async function validateEmployeeImportCsv(
+export async function validateOutletImportCsv(
   file: File,
 ): Promise<string | null> {
   if (!file.size) return "Choose a non-empty CSV file";
@@ -169,7 +186,7 @@ export async function validateEmployeeImportCsv(
   if (!firstLine.trim()) return "CSV appears empty";
 
   const headers = parseCsvLine(firstLine).map(normalizeHeader);
-  const missing = EMPLOYEE_CSV_HEADERS.filter(
+  const missing = REQUIRED_HEADERS.filter(
     (key) => !headers.includes(key.toLowerCase()),
   );
   if (missing.length > 0) {
@@ -182,10 +199,10 @@ export async function validateEmployeeImportCsv(
  * Parse a CSV file into import items. Returns row-level validation errors.
  * Row numbers are 1-based CSV line numbers (header = row 1, first data = row 2).
  */
-export async function parseEmployeeImportCsv(
+export async function parseOutletImportCsv(
   file: File,
-): Promise<{ items: EmployeeImportItem[]; errors: EmployeeImportRowError[] }> {
-  const fileError = await validateEmployeeImportCsv(file);
+): Promise<{ items: OutletImportItem[]; errors: OutletImportRowError[] }> {
+  const fileError = await validateOutletImportCsv(file);
   if (fileError) {
     return { items: [], errors: [{ row: 1, message: fileError }] };
   }
@@ -199,10 +216,10 @@ export async function parseEmployeeImportCsv(
 
   const headerCells = parseCsvLine(lines[headerLineIndex]!);
   const headerIndexes = Object.fromEntries(
-    EMPLOYEE_CSV_HEADERS.map((key) => [key, readHeaderIndex(headerCells, key)]),
-  ) as Record<(typeof EMPLOYEE_CSV_HEADERS)[number], number>;
+    OUTLET_CSV_HEADERS.map((key) => [key, readHeaderIndex(headerCells, key)]),
+  ) as Record<(typeof OUTLET_CSV_HEADERS)[number], number>;
 
-  const missingHeaders = EMPLOYEE_CSV_HEADERS.filter(
+  const missingHeaders = OUTLET_CSV_HEADERS.filter(
     (key) => headerIndexes[key] < 0,
   );
   if (missingHeaders.length > 0) {
@@ -217,8 +234,8 @@ export async function parseEmployeeImportCsv(
     };
   }
 
-  const items: EmployeeImportItem[] = [];
-  const errors: EmployeeImportRowError[] = [];
+  const items: OutletImportItem[] = [];
+  const errors: OutletImportRowError[] = [];
 
   for (let i = headerLineIndex + 1; i < lines.length; i += 1) {
     const line = lines[i]!;
@@ -227,11 +244,11 @@ export async function parseEmployeeImportCsv(
     const rowNumber = i + 1;
     const cells = parseCsvLine(line);
     const values = Object.fromEntries(
-      EMPLOYEE_CSV_HEADERS.map((key) => [
+      OUTLET_CSV_HEADERS.map((key) => [
         key,
         (cells[headerIndexes[key]] ?? "").trim(),
       ]),
-    ) as Record<(typeof EMPLOYEE_CSV_HEADERS)[number], string>;
+    ) as Record<(typeof OUTLET_CSV_HEADERS)[number], string>;
 
     const rowError = validateImportRow(rowNumber, values);
     if (rowError) {

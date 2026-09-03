@@ -78,7 +78,7 @@ export function EmployeeJourneySection({
       description: "Professional memories",
       icon: Image,
       color: "text-emerald-600 bg-emerald-50",
-      comingSoon: true,
+      items: employee.journeys ?? [],
     },
   ];
 

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildEmployeeRequestBody,
+  buildEmployeeImportResult,
   computeEmployeeDocumentStats,
   createEmployeeTransfer,
   dedupeEmployeeRows,
@@ -9,12 +10,14 @@ import {
   getEmployee,
   getEmployeeDocuments,
   getEmployees,
+  importEmployeesCsv,
   mapApiEmployee,
   mapApiEmployeeDetail,
   mapEmployeeDocument,
   searchEmployeesForJoining,
   unwrapEmployeeProfilePayload,
 } from "@/features/employees/api";
+import { buildEmployeeImportTemplateCsv } from "@/features/employees/csv-template";
 import { apiFetch, isMockMode } from "@/lib/api";
 import { ApiError } from "@/lib/api/errors";
 
@@ -587,6 +590,73 @@ describe("mapApiEmployeeDetail", () => {
     expect(detail.address).toContain("Dotsqueares");
     expect(detail.city).toBe("Jaipur");
   });
+
+  it("maps journeys array onto photos journey items", () => {
+    const detail = mapApiEmployeeDetail({
+      id: 53,
+      name: "Rehan Kumar",
+      fadaId: "FADA-EY-86299",
+      certificates: [
+        {
+          id: 5,
+          certificateName: "Ai- Based Test Automation Tool",
+          issuingAuthority: "TestRigor",
+          issueDate: "2025-01-25",
+          certificateNumber: "34Zvvt7ndjd@Qww",
+          attachment: "https://api.fadaid.com/uploads/cert.jpeg",
+        },
+      ],
+      skills: [
+        {
+          id: 5,
+          skillName: "Azure Fundamental",
+          skillCategory: "Azure devops",
+          proficiencyLevel: "Beginner",
+          skillDate: "2026-07-17",
+        },
+      ],
+      journeys: [
+        {
+          id: 7,
+          title: "Resume",
+          subtitle: "IMG20260710170504.jpg",
+          journeyDate: "2026-08-25",
+          attachments: [
+            "https://api.fadaid.com/uploads/1787665605181-110546855.jpg",
+          ],
+        },
+        {
+          id: 6,
+          title: "Company internship photo",
+          subtitle: "Company photo",
+          journeyDate: "2022-01-28",
+          attachments: [
+            "https://api.fadaid.com/uploads/1787218088645-470678662.jpg",
+          ],
+        },
+      ],
+    });
+
+    expect(detail.journeys).toHaveLength(2);
+    expect(detail.journeys?.[0]).toEqual({
+      id: "7",
+      title: "Resume",
+      meta: "IMG20260710170504.jpg",
+      date: "2026-08-25",
+      attachmentUrl:
+        "https://api.fadaid.com/uploads/1787665605181-110546855.jpg",
+    });
+    expect(detail.journeys?.[1]?.title).toBe("Company internship photo");
+    expect(detail.journeys?.[1]?.meta).toBe("Company photo");
+    expect(detail.journeys?.[1]?.date).toBe("2022-01-28");
+    expect(detail.journeys?.[1]?.attachmentUrl).toBe(
+      "https://api.fadaid.com/uploads/1787218088645-470678662.jpg",
+    );
+    expect(detail.certificates?.[0]?.title).toBe(
+      "Ai- Based Test Automation Tool",
+    );
+    expect(detail.skillItems?.[0]?.title).toBe("Azure Fundamental");
+  });
 });
 
 describe("unwrapEmployeeProfilePayload", () => {
@@ -797,5 +867,157 @@ describe("searchEmployeesForJoining", () => {
       message: "No employee found for that FADA ID",
       status: 404,
     });
+  });
+});
+
+describe("buildEmployeeImportResult", () => {
+  const items = [
+    {
+      name: "John Doe",
+      email: "john@example.com",
+      phone: "9876543210",
+      designation: "Sales Executive",
+      department: "Sales",
+      outletCode: "OT583721",
+      startDate: "2026-01-15",
+    },
+    {
+      name: "Jane Skip",
+      email: "skip@example.com",
+      phone: "9876543211",
+      designation: "Advisor",
+      department: "Service",
+      outletCode: "OT583722",
+      startDate: "2026-01-16",
+    },
+  ];
+
+  it("derives counts from skipped rows", () => {
+    const result = buildEmployeeImportResult(items, [
+      {
+        ...items[1]!,
+        reason: "Employee already working presently.",
+      },
+    ]);
+
+    expect(result).toEqual({
+      total: 2,
+      created: 1,
+      failed: 1,
+      errors: [
+        {
+          row: 3,
+          message: "Employee already working presently.",
+        },
+      ],
+    });
+  });
+
+  it("returns parse errors without calling API semantics", () => {
+    const result = buildEmployeeImportResult(
+      [],
+      [],
+      [{ row: 2, message: "Invalid email address" }],
+    );
+
+    expect(result).toEqual({
+      total: 1,
+      created: 0,
+      failed: 1,
+      errors: [{ row: 2, message: "Invalid email address" }],
+    });
+  });
+});
+
+describe("importEmployeesCsv", () => {
+  afterEach(() => {
+    vi.mocked(isMockMode).mockReturnValue(true);
+    vi.mocked(apiFetch).mockReset();
+  });
+
+  function importFile(content: string): Promise<import("@/features/employees/types").EmployeeImportResult> {
+    const file = new File([content], "import.csv", { type: "text/csv" });
+    return importEmployeesCsv(file);
+  }
+
+  it("posts JSON array in live mode", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    vi.mocked(apiFetch).mockResolvedValue({ success: true, data: [] });
+
+    await importFile(buildEmployeeImportTemplateCsv());
+
+    expect(apiFetch).toHaveBeenCalledWith("/dealers/employees/import", {
+      method: "POST",
+      body: [
+        {
+          name: "John Doe",
+          email: "john@example.com",
+          phone: "9876543210",
+          designation: "Sales Executive",
+          department: "Sales",
+          outletCode: "OT583721",
+          startDate: "2026-01-15",
+        },
+      ],
+    });
+  });
+
+  it("maps live skipped rows into UI result", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    vi.mocked(apiFetch).mockResolvedValue({
+      success: true,
+      data: [
+        {
+          name: "John Doe",
+          email: "john@example.com",
+          phone: "9876543210",
+          designation: "Sales Executive",
+          department: "Sales",
+          outletCode: "OT583721",
+          startDate: "2026-01-15",
+          reason: "Outlet not found",
+        },
+      ],
+    });
+
+    const result = await importFile(buildEmployeeImportTemplateCsv());
+
+    expect(result).toEqual({
+      total: 1,
+      created: 0,
+      failed: 1,
+      errors: [{ row: 2, message: "Outlet not found" }],
+    });
+  });
+
+  it("mock mode skips rows whose email contains skip", async () => {
+    const csv = `${[
+      "name",
+      "email",
+      "phone",
+      "designation",
+      "department",
+      "outletCode",
+      "startDate",
+    ].join(",")}\nJohn,john@example.com,9876543210,Exec,Sales,OT583721,2026-01-15\nJane,skip@example.com,9876543211,Advisor,Service,OT583722,2026-01-16`;
+
+    const result = await importFile(csv);
+
+    expect(result.total).toBe(2);
+    expect(result.created).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(result.errors[0]?.message).toBe(
+      "Employee already working presently.",
+    );
+  });
+
+  it("returns parse errors without posting", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+
+    const result = await importFile("name,email\nJane,not-an-email");
+
+    expect(apiFetch).not.toHaveBeenCalled();
+    expect(result.created).toBe(0);
+    expect(result.failed).toBeGreaterThan(0);
   });
 });

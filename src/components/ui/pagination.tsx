@@ -12,6 +12,7 @@ export type PaginationProps = {
   total: number;
   onPageChange: (page: number) => void;
   onPageSizeChange?: (size: number) => void;
+  pageSizeOptions?: { label: string; value: string }[];
   className?: string;
   label?: string;
 };
@@ -42,6 +43,11 @@ export function Pagination({
   total,
   onPageChange,
   onPageSizeChange,
+  pageSizeOptions = [
+    { label: "10 / page", value: "10" },
+    { label: "25 / page", value: "25" },
+    { label: "50 / page", value: "50" },
+  ],
   className,
   label = "records",
 }: PaginationProps) {
@@ -109,11 +115,7 @@ export function Pagination({
             aria-label="Rows per page"
             value={String(pageSize)}
             onChange={(value) => onPageSizeChange(Number(value))}
-            options={[
-              { label: "10 / page", value: "10" },
-              { label: "25 / page", value: "25" },
-              { label: "50 / page", value: "50" },
-            ]}
+            options={pageSizeOptions}
             className="min-w-[120px]"
           />
         ) : null}

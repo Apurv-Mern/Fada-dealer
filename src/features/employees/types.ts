@@ -68,6 +68,29 @@ export type EmployeeFilterOptions = {
   designations: FilterOption[];
 };
 
+/** Single row for POST /dealers/employees/import (Swagger DealerEmployeeImportItem). */
+export type EmployeeImportItem = {
+  name: string;
+  email: string;
+  phone: string;
+  designation: string;
+  department: string;
+  outletCode: string;
+  startDate: string;
+};
+
+export type EmployeeImportSkipReason =
+  | "Employee already working presently."
+  | "Outlet not found"
+  | "Department not found"
+  | "Designation not found";
+
+export type EmployeeImportSkippedRow = EmployeeImportItem & {
+  reason: EmployeeImportSkipReason | string;
+  /** Attached client-side when mapping API skipped rows back to CSV rows. */
+  row?: number;
+};
+
 export type EmployeeImportRowError = {
   row: number;
   message: string;
@@ -155,6 +178,7 @@ export type EmployeeDetail = Employee & {
   appreciations?: EmployeeJourneyItem[];
   promotions?: EmployeeJourneyItem[];
   skillItems?: EmployeeJourneyItem[];
+  journeys?: EmployeeJourneyItem[];
 };
 
 export type EmployeeDocumentStats = {

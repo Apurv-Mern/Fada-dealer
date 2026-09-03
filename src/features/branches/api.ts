@@ -9,6 +9,7 @@ import {
   branches as mockBranches,
   mockGroupDealers,
 } from "@/features/branches/mocks/data";
+import { parseOutletImportCsv } from "@/features/branches/csv-template";
 import { getOutletFunctions } from "@/features/masters/api";
 import type { MasterIdNameItem } from "@/features/masters/types";
 import type {
@@ -16,6 +17,10 @@ import type {
   BranchDashboard,
   BranchListParams,
   GroupDealer,
+  OutletImportItem,
+  OutletImportResult,
+  OutletImportRowError,
+  OutletImportSkippedRow,
   OutletInput,
   OutletOption,
 } from "@/features/branches/types";
@@ -380,7 +385,12 @@ export async function getOutletOptions(): Promise<OutletOption[]> {
       readString(record, "name") ||
       readString(record, "label") ||
       value;
-    return { value, label };
+    const outletCode =
+      readString(record, "outletCode") ||
+      readString(record, "publicCode") ||
+      readString(record, "code") ||
+      undefined;
+    return { value, label, outletCode: outletCode || undefined };
   });
 }
 
@@ -473,4 +483,142 @@ export async function deleteOutlet(id: string): Promise<void> {
     return;
   }
   await apiFetch(`/dealers/outlets/${id}`, { method: "DELETE" });
+}
+
+function mapImportSkippedRow(raw: unknown): OutletImportSkippedRow | null {
+  const record = asRecord(raw);
+  const name = readString(record, "name");
+  if (!name) return null;
+
+  const outletFunctions = Array.isArray(record.outletFunctions)
+    ? record.outletFunctions
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter(Boolean)
+    : [];
+
+  const item: OutletImportSkippedRow = {
+    name,
+    brandName: readString(record, "brandName"),
+    outletFunctions,
+    reason: readString(record, "reason") || "Import skipped",
+  };
+
+  const manager = readString(record, "manager");
+  const pincode =
+    readString(record, "pincode") || readString(record, "pinCode");
+  const city = readString(record, "city");
+  const state = readString(record, "state");
+  const address = readString(record, "address");
+
+  if (manager) item.manager = manager;
+  if (pincode) item.pincode = pincode;
+  if (city) item.city = city;
+  if (state) item.state = state;
+  if (address) item.address = address;
+
+  return item;
+}
+
+function findImportRowNumber(
+  items: OutletImportItem[],
+  skipped: OutletImportSkippedRow,
+): number {
+  const name = skipped.name.trim().toLowerCase();
+  const brandName = skipped.brandName.trim().toLowerCase();
+  const index = items.findIndex(
+    (item) =>
+      item.name.trim().toLowerCase() === name &&
+      item.brandName.trim().toLowerCase() === brandName,
+  );
+  return index >= 0 ? index + 2 : 0;
+}
+
+/** Map parsed items + API skipped rows into UI result counts. */
+export function buildOutletImportResult(
+  items: OutletImportItem[],
+  skippedRows: OutletImportSkippedRow[],
+  parseErrors: OutletImportRowError[] = [],
+): OutletImportResult {
+  if (parseErrors.length > 0) {
+    return {
+      total: items.length + parseErrors.length,
+      created: 0,
+      failed: parseErrors.length,
+      errors: parseErrors,
+    };
+  }
+
+  const total = items.length;
+  const errors: OutletImportRowError[] = skippedRows.map((row) => ({
+    row: findImportRowNumber(items, row),
+    message: row.reason,
+  }));
+  const failed = errors.length;
+
+  return {
+    total,
+    created: total - failed,
+    failed,
+    errors,
+  };
+}
+
+function mapImportSkippedRows(raw: unknown): OutletImportSkippedRow[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map(mapImportSkippedRow)
+    .filter((row): row is OutletImportSkippedRow => row != null);
+}
+
+function mockImportSkippedRows(
+  items: OutletImportItem[],
+): OutletImportSkippedRow[] {
+  return items.flatMap((item) => {
+    const nameLower = item.name.toLowerCase();
+    const brandLower = item.brandName.toLowerCase();
+
+    if (nameLower.includes("skip")) {
+      return [{ ...item, reason: "Outlet already exists" }];
+    }
+    if (brandLower.includes("invalid")) {
+      return [{ ...item, reason: "Brand not found" }];
+    }
+    return [];
+  });
+}
+
+/**
+ * Bulk CSV import. Parses CSV client-side, then POST JSON array to
+ * `/dealers/outlets/import`. See `deploy/OUTLET_CSV_IMPORT_API.md`.
+ */
+export async function importOutletsCsv(
+  file: File,
+): Promise<OutletImportResult> {
+  const { items, errors: parseErrors } = await parseOutletImportCsv(file);
+
+  if (parseErrors.length > 0) {
+    return buildOutletImportResult(items, [], parseErrors);
+  }
+
+  if (items.length === 0) {
+    return {
+      total: 0,
+      created: 0,
+      failed: 0,
+      errors: [{ row: 1, message: "CSV has no data rows" }],
+    };
+  }
+
+  if (isMockMode()) {
+    await mockDelay(400);
+    const skipped = mockImportSkippedRows(items);
+    return buildOutletImportResult(items, skipped);
+  }
+
+  const body = await apiFetch<unknown>("/dealers/outlets/import", {
+    method: "POST",
+    body: items,
+  });
+  const skipped = mapImportSkippedRows(unwrapApiData(body) ?? body);
+  return buildOutletImportResult(items, skipped);
 }

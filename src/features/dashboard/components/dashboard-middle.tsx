@@ -118,11 +118,20 @@ function PendingRequestsCard({ pending }: { pending: PendingRequestCounts }) {
 }
 
 function FadaScoreCard({ score }: { score: FadaScoreSummary }) {
+  const badgeStyle = score.statusColor
+    ? {
+        backgroundColor: `${score.statusColor}20`,
+        color: score.statusColor,
+      }
+    : undefined;
+
   return (
     <Card className="flex flex-col">
       <CardHeader>
         <CardTitle>FADA Score Summary</CardTitle>
-        <Badge variant="danger">{score.status}</Badge>
+        <Badge variant={score.statusColor ? "default" : "muted"} style={badgeStyle}>
+          {score.status}
+        </Badge>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-6">
         <ScoreSpectrum value={score.averagePct} />

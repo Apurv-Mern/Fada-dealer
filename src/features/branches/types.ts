@@ -48,6 +48,8 @@ export type OutletInput = {
 export type OutletOption = {
   value: string;
   label: string;
+  /** Public outlet code (OT######) when returned by the API. */
+  outletCode?: string;
 };
 
 export type GroupDealer = {
@@ -86,4 +88,38 @@ export type BranchDashboard = {
 export type BranchListParams = ListParams & {
   isActive?: boolean;
   groupDealerId?: string | number;
+};
+
+/** Single row for POST /dealers/outlets/import (Swagger DealerOutletImportItem). */
+export type OutletImportItem = {
+  name: string;
+  brandName: string;
+  outletFunctions: string[];
+  manager?: string;
+  pincode?: string;
+  city?: string;
+  state?: string;
+  address?: string;
+};
+
+export type OutletImportSkipReason =
+  | "Outlet already exists"
+  | "Brand not found";
+
+export type OutletImportSkippedRow = OutletImportItem & {
+  reason: OutletImportSkipReason | string;
+  /** Attached client-side when mapping API skipped rows back to CSV rows. */
+  row?: number;
+};
+
+export type OutletImportRowError = {
+  row: number;
+  message: string;
+};
+
+export type OutletImportResult = {
+  total: number;
+  created: number;
+  failed: number;
+  errors: OutletImportRowError[];
 };

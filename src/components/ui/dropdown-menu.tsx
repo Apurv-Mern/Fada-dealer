@@ -112,6 +112,7 @@ export type DropdownMenuItemProps = {
   onClick?: () => void;
   onSelect?: () => void;
   destructive?: boolean;
+  disabled?: boolean;
   className?: string;
 };
 
@@ -120,17 +121,20 @@ export function DropdownMenuItem({
   onClick,
   onSelect,
   destructive,
+  disabled,
   className,
 }: DropdownMenuItemProps) {
   return (
     <button
       type="button"
       role="menuitem"
+      disabled={disabled}
       className={cn(
         "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--color-muted)]",
         destructive
           ? "text-[var(--color-danger)]"
           : "text-[var(--color-text)]",
+        disabled && "pointer-events-none opacity-50",
         className,
       )}
       onClick={(e) => {

@@ -3,18 +3,16 @@ import { getDepartments, getDesignations } from "@/features/masters/api";
 
 export const MASTERS_REFERENCE_CSV_HEADERS = [
   "type",
-  "id",
   "name",
-  "parentId",
-  "parentName",
+  "department",
+  "outletCode",
 ] as const;
 
 export type MastersReferenceRow = {
   type: "department" | "designation" | "outlet";
-  id: string;
   name: string;
-  parentId?: string;
-  parentName?: string;
+  department?: string;
+  outletCode?: string;
 };
 
 function escapeCsvCell(value: string): string {
@@ -37,13 +35,13 @@ function triggerCsvDownload(filename: string, csv: string): void {
   URL.revokeObjectURL(url);
 }
 
-/** Build UTF-8 CSV text for department / designation / outlet ID lookup. */
+/** Build UTF-8 CSV text for department / designation / outlet name lookup. */
 export function buildEmployeeMastersReferenceCsv(
   rows: MastersReferenceRow[],
 ): string {
   const header = MASTERS_REFERENCE_CSV_HEADERS.join(",");
   const lines = rows.map((row) =>
-    [row.type, row.id, row.name, row.parentId ?? "", row.parentName ?? ""]
+    [row.type, row.name, row.department ?? "", row.outletCode ?? ""]
       .map(escapeCsvCell)
       .join(","),
   );
@@ -71,7 +69,6 @@ export async function fetchEmployeeMastersReferenceRows(): Promise<
   for (const dept of departments) {
     rows.push({
       type: "department",
-      id: dept.id,
       name: dept.name,
     });
   }
@@ -80,10 +77,8 @@ export async function fetchEmployeeMastersReferenceRows(): Promise<
     for (const desig of designations) {
       rows.push({
         type: "designation",
-        id: desig.id,
         name: desig.name,
-        parentId: dept.id,
-        parentName: dept.name,
+        department: dept.name,
       });
     }
   }
@@ -91,8 +86,8 @@ export async function fetchEmployeeMastersReferenceRows(): Promise<
   for (const outlet of outlets) {
     rows.push({
       type: "outlet",
-      id: outlet.value,
       name: outlet.label,
+      outletCode: outlet.outletCode,
     });
   }
 
@@ -101,12 +96,12 @@ export async function fetchEmployeeMastersReferenceRows(): Promise<
 
 /**
  * Fetch masters/outlets from dealer APIs and download
- * `employee-import-id-reference.csv`.
+ * `employee-import-reference.csv`.
  * @returns number of data rows written (0 = header only)
  */
 export async function downloadEmployeeMastersReferenceCsv(): Promise<number> {
   const rows = await fetchEmployeeMastersReferenceRows();
   const csv = buildEmployeeMastersReferenceCsv(rows);
-  triggerCsvDownload("employee-import-id-reference.csv", csv);
+  triggerCsvDownload("employee-import-reference.csv", csv);
   return rows.length;
 }

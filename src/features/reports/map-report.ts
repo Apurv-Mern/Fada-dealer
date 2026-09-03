@@ -2,14 +2,17 @@ import type { BarItem } from "@/components/ui/bar-chart";
 import type { BadgeProps } from "@/components/ui/badge";
 import {
   DEALER_REPORT_KEYS,
+  DEFAULT_REPORT_PAGE_SIZE,
   type DealerReportKey,
   type ReportCatalogItem,
+  type ReportFilterField,
   type ReportFilterOption,
   type ReportFiltersMetadata,
   type ReportMeta,
   type ReportQueryParams,
   type ReportResult,
   type ReportScalar,
+  type ReportUrlQuery,
 } from "@/features/reports/types";
 
 const REPORT_LABELS: Record<DealerReportKey, { name: string; description: string }> = {
@@ -245,13 +248,38 @@ export function mapReportResult(
   };
 }
 
+export function getVisibleReportFilters(
+  reportKey: DealerReportKey,
+): ReportFilterField[] {
+  const common: ReportFilterField[] = [
+    "fromDate",
+    "toDate",
+    "departmentId",
+    "designationId",
+  ];
+
+  switch (reportKey) {
+    case "onboarding-verification":
+      return [...common, "verificationStatus", "stage"];
+    case "employee-movement":
+      return [...common, "eventType"];
+    case "adoption-compliance":
+      return [...common, "profileStatus", "membershipStatus", "fadaIdStatus"];
+    case "employee-master":
+      return [...common, "employmentStatus", "fadaIdStatus"];
+    case "workforce-analytics":
+    default:
+      return common;
+  }
+}
+
 /** Swagger query params for generate/export (excluding pagination aliases). */
 export function buildReportApiQuery(
   params: ReportQueryParams & { format?: "xlsx" | "pdf" },
   options?: { includePagination?: boolean },
 ): Record<string, string | number | boolean | undefined | null> {
   const page = params.page ?? 1;
-  const pageSize = params.pageSize ?? 10;
+  const pageSize = params.pageSize ?? DEFAULT_REPORT_PAGE_SIZE;
   const query: Record<string, string | number | boolean | undefined | null> = {
     fromDate: params.fromDate,
     toDate: params.toDate,
@@ -261,6 +289,13 @@ export function buildReportApiQuery(
     designationId: params.designationId
       ? Number(params.designationId) || params.designationId
       : undefined,
+    employmentStatus: params.employmentStatus,
+    fadaIdStatus: params.fadaIdStatus,
+    profileStatus: params.profileStatus,
+    verificationStatus: params.verificationStatus,
+    membershipStatus: params.membershipStatus,
+    stage: params.stage,
+    eventType: params.eventType,
     format: params.format,
   };
 
@@ -270,6 +305,68 @@ export function buildReportApiQuery(
   }
 
   return query;
+}
+
+export function reportUrlQueryToApiParams(
+  query: ReportUrlQuery,
+): ReportQueryParams {
+  return {
+    fromDate: query.fromDate || undefined,
+    toDate: query.toDate || undefined,
+    departmentId: query.departmentId || undefined,
+    designationId: query.designationId || undefined,
+    employmentStatus: query.employmentStatus || undefined,
+    fadaIdStatus: query.fadaIdStatus || undefined,
+    profileStatus: query.profileStatus || undefined,
+    verificationStatus: query.verificationStatus || undefined,
+    membershipStatus: query.membershipStatus || undefined,
+    stage: query.stage || undefined,
+    eventType: query.eventType || undefined,
+    page: query.page,
+    pageSize: query.pageSize,
+  };
+}
+
+const REPORT_FILTER_FIELDS: ReportFilterField[] = [
+  "fromDate",
+  "toDate",
+  "departmentId",
+  "designationId",
+  "employmentStatus",
+  "fadaIdStatus",
+  "profileStatus",
+  "verificationStatus",
+  "membershipStatus",
+  "stage",
+  "eventType",
+];
+
+/** Drop filters that do not apply to the active report tab. */
+export function sanitizeReportQueryForKey(
+  reportKey: DealerReportKey,
+  query: ReportUrlQuery,
+): ReportUrlQuery {
+  const visible = new Set(getVisibleReportFilters(reportKey));
+  const next = { ...query };
+
+  for (const key of REPORT_FILTER_FIELDS) {
+    if (!visible.has(key)) {
+      next[key] = "";
+    }
+  }
+
+  return next;
+}
+
+/** Export params for the currently selected report tab (no pagination). */
+export function reportExportParams(
+  reportKey: DealerReportKey,
+  query: ReportUrlQuery,
+): ReportQueryParams {
+  const sanitized = sanitizeReportQueryForKey(reportKey, query);
+  const { page: _page, pageSize: _pageSize, ...params } =
+    reportUrlQueryToApiParams(sanitized);
+  return params;
 }
 
 export function formatReportLabel(key: string): string {

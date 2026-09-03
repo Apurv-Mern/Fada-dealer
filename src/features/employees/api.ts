@@ -6,6 +6,7 @@ import {
   unwrapApiData,
 } from "@/lib/api/parse";
 import { getOutletOptions } from "@/features/branches/api";
+import { parseEmployeeImportCsv } from "@/features/employees/csv-template";
 import { ApiError } from "@/lib/api/errors";
 import {
   employeeFilterOptions as mockFilterOptions,
@@ -23,7 +24,10 @@ import type {
   EmployeeDocumentStats,
   EmployeeExperience,
   EmployeeFilterOptions,
+  EmployeeImportItem,
   EmployeeImportResult,
+  EmployeeImportRowError,
+  EmployeeImportSkippedRow,
   EmployeeInput,
   EmployeeJourneyItem,
   EmployeeListParams,
@@ -319,6 +323,36 @@ function mapJourneyItems(
   return items;
 }
 
+function mapJourneyPhotos(raw: unknown): EmployeeJourneyItem[] {
+  const items: EmployeeJourneyItem[] = [];
+  for (const item of asUnknownArray(raw)) {
+    const row = asRecord(item);
+    const title = readString(row, "title");
+    if (!title) continue;
+
+    let attachmentUrl: string | undefined;
+    for (const attachment of asUnknownArray(row.attachments)) {
+      const url =
+        typeof attachment === "string"
+          ? safeHttpUrl(attachment)
+          : safeHttpUrl(readString(asRecord(attachment), "url"));
+      if (url) {
+        attachmentUrl = url;
+        break;
+      }
+    }
+
+    items.push({
+      id: readString(row, "id") || String(row.id ?? title),
+      title,
+      meta: readString(row, "subtitle") || undefined,
+      date: readString(row, "journeyDate") || undefined,
+      attachmentUrl,
+    });
+  }
+  return items;
+}
+
 /** Normalize profile payload: object, or rare `data: [employee]` array. */
 export function unwrapEmployeeProfilePayload(body: unknown): unknown {
   const data = unwrapApiData(body);
@@ -533,6 +567,7 @@ export function mapApiEmployeeDetail(raw: unknown): EmployeeDetail {
       attachment: ["attachment"],
     }),
     skillItems,
+    journeys: mapJourneyPhotos(record.journeys ?? employee.journeys),
   };
 }
 
@@ -973,52 +1008,119 @@ export async function deactivateEmployee(employee: Employee): Promise<Employee> 
   });
 }
 
-function mapImportResult(raw: unknown): EmployeeImportResult {
+function mapImportSkippedRow(raw: unknown): EmployeeImportSkippedRow | null {
   const record = asRecord(raw);
-  const errorsRaw = record.errors;
-  const errors = Array.isArray(errorsRaw)
-    ? errorsRaw.map((item) => {
-        const row = asRecord(item);
-        return {
-          row: readNumber(row, "row"),
-          message: readString(row, "message") || "Import failed for this row",
-        };
-      })
-    : [];
+  const name = readString(record, "name");
+  if (!name) return null;
 
   return {
-    total: readNumber(record, "total"),
-    created: readNumber(record, "created"),
-    failed: readNumber(record, "failed"),
+    name,
+    email: readString(record, "email"),
+    phone: readString(record, "phone"),
+    designation: readString(record, "designation"),
+    department: readString(record, "department"),
+    outletCode: readString(record, "outletCode"),
+    startDate: readString(record, "startDate"),
+    reason: readString(record, "reason") || "Import skipped",
+  };
+}
+
+function findImportRowNumber(
+  items: EmployeeImportItem[],
+  skipped: EmployeeImportSkippedRow,
+): number {
+  const email = skipped.email.trim().toLowerCase();
+  const phone = skipped.phone.trim();
+  const index = items.findIndex(
+    (item) =>
+      item.email.trim().toLowerCase() === email ||
+      (phone && item.phone.trim() === phone),
+  );
+  return index >= 0 ? index + 2 : 0;
+}
+
+/** Map parsed items + API skipped rows into UI result counts. */
+export function buildEmployeeImportResult(
+  items: EmployeeImportItem[],
+  skippedRows: EmployeeImportSkippedRow[],
+  parseErrors: EmployeeImportRowError[] = [],
+): EmployeeImportResult {
+  if (parseErrors.length > 0) {
+    return {
+      total: items.length + parseErrors.length,
+      created: 0,
+      failed: parseErrors.length,
+      errors: parseErrors,
+    };
+  }
+
+  const total = items.length;
+  const errors: EmployeeImportRowError[] = skippedRows.map((row) => ({
+    row: findImportRowNumber(items, row),
+    message: row.reason,
+  }));
+  const failed = errors.length;
+
+  return {
+    total,
+    created: total - failed,
+    failed,
     errors,
   };
 }
 
+function mapImportSkippedRows(raw: unknown): EmployeeImportSkippedRow[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map(mapImportSkippedRow)
+    .filter((row): row is EmployeeImportSkippedRow => row != null);
+}
+
+function mockImportSkippedRows(
+  items: EmployeeImportItem[],
+): EmployeeImportSkippedRow[] {
+  return items
+    .filter((item) => item.email.toLowerCase().includes("skip"))
+    .map((item) => ({
+      ...item,
+      reason: "Employee already working presently.",
+    }));
+}
+
 /**
- * Bulk CSV import. Calls `POST /dealers/employees/import` (multipart `file`).
- * See `deploy/EMPLOYEE_CSV_IMPORT_API.md` for the backend contract.
+ * Bulk CSV import. Parses CSV client-side, then POST JSON array to
+ * `/dealers/employees/import`. See `deploy/EMPLOYEE_CSV_IMPORT_API.md`.
  */
 export async function importEmployeesCsv(
   file: File,
 ): Promise<EmployeeImportResult> {
-  if (isMockMode()) {
-    await mockDelay(400);
+  const { items, errors: parseErrors } = await parseEmployeeImportCsv(file);
+
+  if (parseErrors.length > 0) {
+    return buildEmployeeImportResult(items, [], parseErrors);
+  }
+
+  if (items.length === 0) {
     return {
-      total: 2,
-      created: 2,
+      total: 0,
+      created: 0,
       failed: 0,
-      errors: [],
+      errors: [{ row: 1, message: "CSV has no data rows" }],
     };
   }
 
-  const form = new FormData();
-  form.append("file", file);
+  if (isMockMode()) {
+    await mockDelay(400);
+    const skipped = mockImportSkippedRows(items);
+    return buildEmployeeImportResult(items, skipped);
+  }
 
   const body = await apiFetch<unknown>("/dealers/employees/import", {
     method: "POST",
-    body: form,
+    body: items,
   });
-  return mapImportResult(unwrapApiData(body) ?? body);
+  const skipped = mapImportSkippedRows(unwrapApiData(body) ?? body);
+  return buildEmployeeImportResult(items, skipped);
 }
 
 export async function createEmployeeTransfer(

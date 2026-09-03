@@ -10,6 +10,7 @@ import { DealershipBusinessDetailsCard } from "@/features/dealership/components/
 import { DealershipContactsSection } from "@/features/dealership/components/contacts-section";
 import { DealershipDocumentsSection } from "@/features/dealership/components/documents-section";
 import { DealershipProfileSection } from "@/features/dealership/components/profile-section";
+import { SHOW_ACTIVITY_OVERVIEW } from "@/features/dealership/feature-flags";
 import {
   dealerProfileBannerMessage,
   dealerProfileStatusLabel,
@@ -102,7 +103,9 @@ export function DealershipView({
         />
       </div>
 
-      <DealershipActivityOverview activity={data.activity} />
+      {SHOW_ACTIVITY_OVERVIEW ? (
+        <DealershipActivityOverview activity={data.activity} />
+      ) : null}
     </div>
   );
 }

@@ -7,11 +7,15 @@ import {
   formatCellValue,
   formatReportDate,
   formatScalarDisplay,
+  getVisibleReportFilters,
   mapReportFiltersMetadata,
   mapReportResult,
   mergeBreakdownSources,
   partitionReportSummary,
+  reportExportParams,
+  sanitizeReportQueryForKey,
 } from "@/features/reports/map-report";
+import { emptyReportUrlQuery } from "@/features/reports/types";
 
 describe("buildReportApiQuery", () => {
   it("maps page/pageSize to limit/offset and omits empty filters", () => {
@@ -20,9 +24,39 @@ describe("buildReportApiQuery", () => {
       toDate: undefined,
       departmentId: undefined,
       designationId: undefined,
+      employmentStatus: undefined,
+      fadaIdStatus: undefined,
+      profileStatus: undefined,
+      verificationStatus: undefined,
+      membershipStatus: undefined,
+      stage: undefined,
+      eventType: undefined,
       format: undefined,
       limit: 25,
       offset: 25,
+    });
+  });
+
+  it("defaults pageSize to 50 per Swagger", () => {
+    expect(buildReportApiQuery({ page: 1 })).toMatchObject({
+      limit: 50,
+      offset: 0,
+    });
+  });
+
+  it("forwards Swagger status and report-specific filters", () => {
+    expect(
+      buildReportApiQuery({
+        employmentStatus: "active",
+        verificationStatus: "pending",
+        stage: "registered",
+        eventType: "exit",
+      }),
+    ).toMatchObject({
+      employmentStatus: "active",
+      verificationStatus: "pending",
+      stage: "registered",
+      eventType: "exit",
     });
   });
 
@@ -37,7 +71,72 @@ describe("buildReportApiQuery", () => {
       toDate: undefined,
       departmentId: undefined,
       designationId: undefined,
+      employmentStatus: undefined,
+      fadaIdStatus: undefined,
+      profileStatus: undefined,
+      verificationStatus: undefined,
+      membershipStatus: undefined,
+      stage: undefined,
+      eventType: undefined,
       format: "xlsx",
+    });
+  });
+});
+
+describe("getVisibleReportFilters", () => {
+  it("includes report-specific filters per Swagger", () => {
+    expect(getVisibleReportFilters("onboarding-verification")).toContain(
+      "verificationStatus",
+    );
+    expect(getVisibleReportFilters("onboarding-verification")).toContain("stage");
+    expect(getVisibleReportFilters("employee-movement")).toContain("eventType");
+    expect(getVisibleReportFilters("employee-master")).toContain(
+      "employmentStatus",
+    );
+    expect(getVisibleReportFilters("workforce-analytics")).not.toContain(
+      "eventType",
+    );
+  });
+});
+
+describe("sanitizeReportQueryForKey", () => {
+  it("clears filters that do not apply to the active report tab", () => {
+    const query = {
+      ...emptyReportUrlQuery(),
+      eventType: "exit",
+      employmentStatus: "active",
+      fromDate: "2026-01-01",
+    };
+
+    const sanitized = sanitizeReportQueryForKey("workforce-analytics", query);
+
+    expect(sanitized.fromDate).toBe("2026-01-01");
+    expect(sanitized.eventType).toBe("");
+    expect(sanitized.employmentStatus).toBe("");
+  });
+});
+
+describe("reportExportParams", () => {
+  it("exports only filters valid for the selected report key", () => {
+    const params = reportExportParams("employee-movement", {
+      ...emptyReportUrlQuery(),
+      fromDate: "2026-01-01",
+      eventType: "exit",
+      employmentStatus: "active",
+    });
+
+    expect(params).toEqual({
+      fromDate: "2026-01-01",
+      toDate: undefined,
+      departmentId: undefined,
+      designationId: undefined,
+      employmentStatus: undefined,
+      fadaIdStatus: undefined,
+      profileStatus: undefined,
+      verificationStatus: undefined,
+      membershipStatus: undefined,
+      stage: undefined,
+      eventType: "exit",
     });
   });
 });

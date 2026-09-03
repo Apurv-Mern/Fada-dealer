@@ -733,11 +733,11 @@ function EmployeesImportForm({
       if (count === 0) {
         toast.message("No master data found — downloaded empty reference file");
       } else {
-        toast.success("ID reference downloaded");
+        toast.success("Reference downloaded");
       }
     } catch (err) {
       toast.error(
-        toAuthErrorMessage(err, "Couldn't download ID reference"),
+        toAuthErrorMessage(err, "Couldn't download reference"),
       );
     } finally {
       setReferenceLoading(false);
@@ -763,11 +763,13 @@ function EmployeesImportForm({
 
       if (importResult.failed > 0 && importResult.created > 0) {
         toast.message(
-          `Imported ${importResult.created} of ${importResult.total}; ${importResult.failed} failed`,
+          `Imported ${importResult.created} of ${importResult.total}; ${importResult.failed} skipped`,
         );
       } else if (importResult.failed > 0) {
         toast.error(
-          `Import failed for ${importResult.failed} of ${importResult.total} row(s)`,
+          importResult.created === 0 && importResult.errors.some((e) => e.row > 1)
+            ? `Fix ${importResult.failed} row error(s) before importing`
+            : `Import skipped ${importResult.failed} of ${importResult.total} row(s)`,
         );
       } else {
         toast.success(
@@ -805,7 +807,7 @@ function EmployeesImportForm({
           onClick={() => void handleDownloadIdReference()}
         >
           <Download className="size-3.5" aria-hidden />
-          Download ID reference
+          Download reference
         </Button>
       </div>
 
@@ -879,19 +881,19 @@ function EmployeesImportForm({
 
       <div className="space-y-1 text-xs text-[var(--color-text-muted)]">
         <p>
-          Columns: name, email, phone, departmentId, designationId, outletId,
-          score, isActive, joinedDate
+          Columns: name, email, phone, designation, department, outletCode,
+          startDate
         </p>
         <p>
-          Use Download ID reference for departmentId, designationId, and
-          outletId values.
+          Use Download reference for department, designation, and outletCode
+          values. All columns are required per row.
         </p>
       </div>
 
       {result ? (
         <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-muted)] p-3 text-sm">
           <p className="font-medium text-[var(--color-heading)]">
-            {result.created} created · {result.failed} failed · {result.total}{" "}
+            {result.created} imported · {result.failed} skipped · {result.total}{" "}
             total
           </p>
           {result.errors.length > 0 ? (

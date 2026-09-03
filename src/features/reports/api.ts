@@ -17,6 +17,7 @@ import type {
   ReportQueryParams,
   ReportResult,
 } from "@/features/reports/types";
+import { DEFAULT_REPORT_PAGE_SIZE } from "@/features/reports/types";
 
 export {
   buildReportApiQuery,
@@ -27,6 +28,7 @@ export {
   formatReportLabel,
   formatScalarDisplay,
   formatSummaryLabel,
+  getVisibleReportFilters,
   isDateColumnKey,
   isStatusColumnKey,
   mapReportFiltersMetadata,
@@ -34,10 +36,12 @@ export {
   mergeBreakdownSources,
   partitionReportSummary,
   reportStatusBadgeVariant,
+  reportExportParams,
+  reportUrlQueryToApiParams,
+  sanitizeReportQueryForKey,
 } from "@/features/reports/map-report";
 
 const DEFAULT_PAGE = 1;
-const DEFAULT_PAGE_SIZE = 10;
 
 export async function getReportFilters(
   reportKey?: DealerReportKey,
@@ -57,7 +61,7 @@ export async function getReport(
   params: ReportQueryParams = {},
 ): Promise<ReportResult> {
   const page = params.page ?? DEFAULT_PAGE;
-  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+  const pageSize = params.pageSize ?? DEFAULT_REPORT_PAGE_SIZE;
 
   if (isMockMode()) {
     await mockDelay();
@@ -81,9 +85,14 @@ export async function exportReport(
   if (isMockMode()) {
     await mockDelay(200);
     const csv = "Employee,Status\nSample,Active\n";
+    const mime =
+      format === "pdf"
+        ? "application/pdf"
+        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    const extension = format === "pdf" ? "pdf" : "xlsx";
     triggerBlobDownload(
-      new Blob([csv], { type: "text/csv;charset=utf-8;" }),
-      `${reportKey}.csv`,
+      new Blob([csv], { type: mime }),
+      `${reportKey}.${extension}`,
     );
     return;
   }

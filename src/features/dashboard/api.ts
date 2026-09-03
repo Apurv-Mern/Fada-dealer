@@ -1,19 +1,36 @@
-import { isMockMode } from "@/lib/api";
+import { apiFetch, isMockMode } from "@/lib/api";
 import { mockDelay } from "@/lib/api/parse";
+import {
+  buildDashboardQuery,
+  formatDashboardDateRange,
+  mapDashboardSummary,
+} from "@/features/dashboard/map-dashboard";
 import { emptyDashboardSummary } from "@/features/dashboard/mocks/data";
-import type { DashboardSummary } from "@/features/dashboard/types";
+import type {
+  DashboardQueryParams,
+  DashboardSummary,
+} from "@/features/dashboard/types";
 
 /**
  * Dashboard overview for the dealer portal.
- * Mock mode returns static zeros. Live HTTP path is not available yet.
+ * Mock mode returns static zeros. Live mode calls GET /dealers/user/dashboard.
  */
-export async function getDashboardSummary(): Promise<DashboardSummary> {
+export async function getDashboardSummary(
+  params: DashboardQueryParams = {},
+): Promise<DashboardSummary> {
   if (isMockMode()) {
     await mockDelay();
-    return emptyDashboardSummary;
+    const startDate = params.startDate ?? emptyDashboardSummary.startDate;
+    const endDate = params.endDate ?? emptyDashboardSummary.endDate;
+    return {
+      ...emptyDashboardSummary,
+      startDate,
+      endDate,
+      dateRangeLabel: formatDashboardDateRange(startDate, endDate),
+    };
   }
 
-  throw new Error(
-    "Dashboard API is not available yet. Set NEXT_PUBLIC_USE_MOCKS=true or wait for the Node endpoint.",
-  );
+  const query = buildDashboardQuery(params);
+  const body = await apiFetch<unknown>(`/dealers/user/dashboard${query}`);
+  return mapDashboardSummary(body);
 }

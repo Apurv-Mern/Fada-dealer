@@ -249,6 +249,22 @@ export const mockEmployeeDetailExtras: Record<
         meta: "soft",
       },
     ],
+    journeys: [
+      {
+        id: "journey-1",
+        title: "Resume",
+        meta: "profile-photo.jpg",
+        date: "2026-08-25",
+        attachmentUrl: "https://example.com/resume.jpg",
+      },
+      {
+        id: "journey-2",
+        title: "Company internship photo",
+        meta: "Company photo",
+        date: "2022-01-28",
+        attachmentUrl: "https://example.com/internship.jpg",
+      },
+    ],
   },
   "2": {
     dateOfBirth: "1992-05-14",

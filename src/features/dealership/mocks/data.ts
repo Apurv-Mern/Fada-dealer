@@ -22,7 +22,7 @@ export const mockDealerProfile: DealerProfile = {
   email: "dealer@example.com",
   phone: "9876543210",
   dealerCode: "DLR-001",
-  status: "pending",
+  status: "approved",
   isActive: true,
   totalOutlets: 3,
   allEmployees: 42,

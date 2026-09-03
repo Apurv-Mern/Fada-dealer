@@ -2,6 +2,8 @@ import type { DashboardSummary } from "@/features/dashboard/types";
 
 export const emptyDashboardSummary: DashboardSummary = {
   dateRangeLabel: "01 Jul 2026 - 12 Jul 2026",
+  startDate: "2026-07-01",
+  endDate: "2026-07-12",
   stats: {
     totalEmployees: {
       label: "Total Employees",

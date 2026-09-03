@@ -22,12 +22,19 @@ export type PendingRequestCounts = {
 
 export type FadaScoreSummary = {
   status: string;
+  /** API tier color (hex) when provided. */
+  statusColor?: string;
   /** 0–100 marker position; null when unknown. */
   averagePct: number | null;
   /** Display string for average score (e.g. "—" when null). */
   averageDisplay: string;
   top25Pct: number;
   employees: number;
+};
+
+export type DashboardQueryParams = {
+  startDate?: string;
+  endDate?: string;
 };
 
 export type EmploymentRequestType = "Join" | "Exit" | "Transfer";
@@ -47,6 +54,8 @@ export type RecentEmploymentRequest = {
 
 export type DashboardSummary = {
   dateRangeLabel: string;
+  startDate: string;
+  endDate: string;
   stats: DashboardStats;
   employeesByBranch: DonutSlice[];
   employeesByBranchTotal: number;
