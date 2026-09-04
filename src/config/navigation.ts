@@ -10,21 +10,65 @@ import {
   Settings,
 } from "lucide-react";
 
+import { PERMISSION } from "@/features/auth/permissions";
+
 export type NavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
+  /** Single permission or any-of list required to show and access the route. */
+  permission?: string | readonly string[];
 };
 
 export const dealerNavItems: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Company Profile", href: "/dealership", icon: Building2 },
-  { label: "Outlets", href: "/branches", icon: GitBranch },
-  { label: "Employees", href: "/employees", icon: Users },
-  { label: "Employment Requests", href: "/verifications", icon: ClipboardList },
-  { label: "Reports", href: "/reports", icon: BarChart3 },
-  { label: "Communications", href: "/communications", icon: Megaphone },
-  { label: "Settings", href: "/settings", icon: Settings },
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    permission: PERMISSION.dashboardView,
+  },
+  {
+    label: "Company Profile",
+    href: "/dealership",
+    icon: Building2,
+    permission: PERMISSION.companyProfileView,
+  },
+  {
+    label: "Outlets",
+    href: "/branches",
+    icon: GitBranch,
+    permission: PERMISSION.outletsView,
+  },
+  {
+    label: "Employees",
+    href: "/employees",
+    icon: Users,
+    permission: PERMISSION.employeesView,
+  },
+  {
+    label: "Employment Requests",
+    href: "/verifications",
+    icon: ClipboardList,
+    permission: PERMISSION.employmentRequestsView,
+  },
+  {
+    label: "Reports",
+    href: "/reports",
+    icon: BarChart3,
+    permission: PERMISSION.reportsView,
+  },
+  {
+    label: "Communications",
+    href: "/communications",
+    icon: Megaphone,
+    permission: PERMISSION.communicationsView,
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: Settings,
+    permission: [PERMISSION.staffView, PERMISSION.settingsManage],
+  },
 ];
 
 export const routes = {
@@ -43,3 +87,44 @@ export const routes = {
   communications: "/communications",
   settings: "/settings",
 } as const;
+
+function navItemAllowed(
+  item: NavItem,
+  has: (key: string) => boolean,
+  hasAny: (keys: readonly string[]) => boolean,
+): boolean {
+  if (!item.permission) return true;
+  if (Array.isArray(item.permission)) return hasAny(item.permission);
+  return has(item.permission as string);
+}
+
+export function getAllowedNavItems(
+  has: (key: string) => boolean,
+  hasAny: (keys: readonly string[]) => boolean,
+): NavItem[] {
+  return dealerNavItems.filter((item) => navItemAllowed(item, has, hasAny));
+}
+
+export function getRoutePermission(
+  pathname: string,
+): string | readonly string[] | undefined {
+  const normalized = pathname.endsWith("/") ? pathname : `${pathname}/`;
+  const match = dealerNavItems.find((item) => {
+    const href = item.href.endsWith("/") ? item.href : `${item.href}/`;
+    return normalized === href || normalized.startsWith(href);
+  });
+  if (match) return match.permission;
+
+  if (normalized.startsWith("/employees/detail/")) {
+    return PERMISSION.employeesView;
+  }
+
+  return undefined;
+}
+
+export function canShowSettingsLink(
+  has: (key: string) => boolean,
+  hasAny: (keys: readonly string[]) => boolean,
+): boolean {
+  return hasAny([PERMISSION.staffView, PERMISSION.settingsManage]);
+}

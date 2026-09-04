@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 
 import { cn } from "@/lib/utils/cn";
@@ -27,6 +29,29 @@ function initials(name: string) {
     .join("");
 }
 
+function AvatarInitials({
+  name,
+  size,
+  className,
+}: {
+  name: string;
+  size: AvatarProps["size"];
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-[var(--color-brand)] font-semibold text-white",
+        sizeMap[size ?? "md"],
+        className,
+      )}
+    >
+      {initials(name)}
+    </span>
+  );
+}
+
 export function Avatar({
   name,
   src,
@@ -34,7 +59,13 @@ export function Avatar({
   fallback = "initials",
   className,
 }: AvatarProps) {
-  if (src) {
+  const [imageFailed, setImageFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setImageFailed(false);
+  }, [src]);
+
+  if (src && !imageFailed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -45,6 +76,7 @@ export function Avatar({
           sizeMap[size],
           className,
         )}
+        onError={() => setImageFailed(true)}
       />
     );
   }
@@ -62,16 +94,5 @@ export function Avatar({
     );
   }
 
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full bg-[var(--color-brand)] font-semibold text-white",
-        sizeMap[size],
-        className,
-      )}
-    >
-      {initials(name)}
-    </span>
-  );
+  return <AvatarInitials name={name} size={size} className={className} />;
 }

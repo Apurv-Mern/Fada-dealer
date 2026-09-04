@@ -4,6 +4,8 @@ import {
   sessionFromAuthBody,
   type SessionPayload,
 } from "@/features/auth/auth-utils";
+import { fetchRolePermissions } from "@/features/auth/role-permissions";
+import { resolvePrimaryDealerPermissions } from "@/features/auth/permissions";
 import {
   clearTokens,
   getAccessToken,
@@ -34,6 +36,26 @@ function establishLocalSession(profile: SessionPayload, accessToken: string) {
   setSession({ accessToken, profile });
 }
 
+async function resolveSessionProfile(
+  body: AuthTokenResponse,
+  fallbackEmail: string,
+  accessToken: string,
+): Promise<SessionPayload> {
+  const base = sessionFromAuthBody(body, fallbackEmail);
+
+  if (base.userType === "staff" && base.roleId != null) {
+    const role = await fetchRolePermissions(base.roleId, accessToken);
+    return sessionFromAuthBody(body, fallbackEmail, {
+      permissions: role.permissions,
+      roleKey: role.roleKey,
+      roleLabel: role.roleLabel,
+      isSuperRole: role.isSuperRole,
+    });
+  }
+
+  return base;
+}
+
 /** Persist tokens + profile in localStorage after a successful auth response. */
 export async function completeDealerLogin(
   body: AuthTokenResponse,
@@ -43,10 +65,15 @@ export async function completeDealerLogin(
   if (!tokens.accessToken) {
     throw new Error(body.message ?? "Login succeeded but no token returned");
   }
+  const profile = await resolveSessionProfile(
+    body,
+    fallbackEmail,
+    tokens.accessToken,
+  );
   setSession({
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
-    profile: sessionFromAuthBody(body, fallbackEmail),
+    profile,
   });
 }
 
@@ -56,7 +83,11 @@ function mockLoginSession(email: string) {
       id: "16",
       email,
       name: "Rajesh Sharma",
-      role: "Company Admin",
+      roleLabel: "Dealer Admin",
+      userType: "dealer",
+      roleKey: "dealer_admin",
+      permissions: resolvePrimaryDealerPermissions(),
+      isSuperRole: true,
       isGroupHoldingEntity: true,
     },
     "mock-access-token",

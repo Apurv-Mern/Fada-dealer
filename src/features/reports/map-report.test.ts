@@ -20,6 +20,7 @@ import { emptyReportUrlQuery } from "@/features/reports/types";
 describe("buildReportApiQuery", () => {
   it("maps page/pageSize to limit/offset and omits empty filters", () => {
     expect(buildReportApiQuery({ page: 2, pageSize: 25 })).toEqual({
+      search: undefined,
       fromDate: undefined,
       toDate: undefined,
       departmentId: undefined,
@@ -34,6 +35,15 @@ describe("buildReportApiQuery", () => {
       format: undefined,
       limit: 25,
       offset: 25,
+    });
+  });
+
+  it("forwards search when provided", () => {
+    expect(buildReportApiQuery({ search: "FADA-DR-123" })).toMatchObject({
+      search: "FADA-DR-123",
+    });
+    expect(buildReportApiQuery({ search: "" })).toMatchObject({
+      search: undefined,
     });
   });
 
@@ -67,6 +77,7 @@ describe("buildReportApiQuery", () => {
         { includePagination: false },
       ),
     ).toEqual({
+      search: undefined,
       fromDate: "2026-01-01",
       toDate: undefined,
       departmentId: undefined,
@@ -84,6 +95,11 @@ describe("buildReportApiQuery", () => {
 });
 
 describe("getVisibleReportFilters", () => {
+  it("includes search on all report tabs", () => {
+    expect(getVisibleReportFilters("workforce-analytics")).toContain("search");
+    expect(getVisibleReportFilters("employee-master")).toContain("search");
+  });
+
   it("includes report-specific filters per Swagger", () => {
     expect(getVisibleReportFilters("onboarding-verification")).toContain(
       "verificationStatus",
@@ -138,6 +154,17 @@ describe("reportExportParams", () => {
       stage: undefined,
       eventType: "exit",
     });
+  });
+
+  it("excludes search from export params", () => {
+    const params = reportExportParams("employee-master", {
+      ...emptyReportUrlQuery(),
+      search: "rahul",
+      fromDate: "2026-01-01",
+    });
+
+    expect(params).not.toHaveProperty("search");
+    expect(params.fromDate).toBe("2026-01-01");
   });
 });
 
@@ -276,8 +303,23 @@ describe("extractBreakdownCharts", () => {
     const charts = extractBreakdownCharts({
       stages: [{ stage: "registered", count: 5 }],
     });
-    expect(charts[0]?.items[0]?.label).toBe("registered");
+    expect(charts[0]?.title).toBe("Onboarding stages");
+    expect(charts[0]?.items[0]?.label).toBe("Registered");
     expect(charts[0]?.items[0]?.value).toBe(5);
+  });
+
+  it("formats slug stage values for display", () => {
+    const charts = extractBreakdownCharts({
+      stages: [{ stage: "company-name", count: 5 }],
+    });
+    expect(charts[0]?.items[0]?.label).toBe("Company name");
+  });
+
+  it("preserves human-readable name fields", () => {
+    const charts = extractBreakdownCharts({
+      byOutlet: [{ name: "Central Showroom", count: 3 }],
+    });
+    expect(charts[0]?.items[0]?.label).toBe("Central Showroom");
   });
 });
 

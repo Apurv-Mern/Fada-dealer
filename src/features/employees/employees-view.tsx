@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Filter, Plus, Upload, UserRoundPlus } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { PERMISSION } from "@/features/auth/permissions";
+import { usePermissions } from "@/features/auth/permissions-context";
 import {
   Button,
   Card,
@@ -57,6 +59,8 @@ export function EmployeesView({
   isRefreshing,
   onRefresh,
 }: EmployeesViewProps) {
+  const { has } = usePermissions();
+  const canManageEmployees = has(PERMISSION.employeesManage);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -179,25 +183,27 @@ export function EmployeesView({
         title="Employee Management"
         description="Search, onboard, and manage company employment relationships."
         actions={
-          <>
-            <Button variant="secondary" onClick={() => setImportDialogOpen(true)}>
-              <Upload />
-              Import Employees
-            </Button>
-            <Button variant="secondary" onClick={() => setRejoinOpen(true)}>
-              <UserRoundPlus />
-              Invite Employee
-            </Button>
-            <Button
-              onClick={() => {
-                setEditing(null);
-                setAddOpen(true);
-              }}
-            >
-              <Plus />
-              Add New Employee
-            </Button>
-          </>
+          canManageEmployees ? (
+            <>
+              <Button variant="secondary" onClick={() => setImportDialogOpen(true)}>
+                <Upload />
+                Import Employees
+              </Button>
+              <Button variant="secondary" onClick={() => setRejoinOpen(true)}>
+                <UserRoundPlus />
+                Invite Employee
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditing(null);
+                  setAddOpen(true);
+                }}
+              >
+                <Plus />
+                Add New Employee
+              </Button>
+            </>
+          ) : undefined
         }
       />
 
@@ -247,8 +253,8 @@ export function EmployeesView({
             selected={selected}
             loading={isRefreshing}
             onToggleOne={toggleOne}
-            onEdit={openEdit}
-            onTransfer={setTransferring}
+            onEdit={canManageEmployees ? openEdit : undefined}
+            onTransfer={canManageEmployees ? setTransferring : undefined}
           />
           <EmployeesTable
             rows={pageRows}
@@ -257,8 +263,8 @@ export function EmployeesView({
             allVisibleSelected={allVisibleSelected}
             onToggleAll={toggleAll}
             onToggleOne={toggleOne}
-            onEdit={openEdit}
-            onTransfer={setTransferring}
+            onEdit={canManageEmployees ? openEdit : undefined}
+            onTransfer={canManageEmployees ? setTransferring : undefined}
           />
           <Pagination
             page={list.page}

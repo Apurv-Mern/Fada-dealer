@@ -1,5 +1,5 @@
-import { DealerUsersSkeleton } from "@/features/dealer-users/dealer-users-skeleton";
+import { StaffSkeleton } from "@/features/dealer-staff/staff-skeleton";
 
-export default function Loading() {
-  return <DealerUsersSkeleton />;
+export default function SettingsLoading() {
+  return <StaffSkeleton />;
 }

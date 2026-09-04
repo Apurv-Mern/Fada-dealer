@@ -14,12 +14,15 @@ export type AppShellProps = {
   userName?: string;
   userRole?: string;
   userEmail?: string;
+  userAvatarUrl?: string | null;
   loggedInDealerId?: string;
   selectedDealerId?: string;
   groupDealers?: GroupDealer[];
   onDealerChange?: (dealerId: string) => void;
   isPortalLocked?: boolean;
   onLockedNavAttempt?: () => void;
+  showSettingsLink?: boolean;
+  showGroupDealerSwitch?: boolean;
 };
 
 export function AppShell({
@@ -27,12 +30,15 @@ export function AppShell({
   userName,
   userRole,
   userEmail,
+  userAvatarUrl,
   loggedInDealerId,
   selectedDealerId,
   groupDealers,
   onDealerChange,
   isPortalLocked = false,
   onLockedNavAttempt,
+  showSettingsLink = true,
+  showGroupDealerSwitch = true,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const pageKey = selectedDealerId || loggedInDealerId || "main";
@@ -80,12 +86,15 @@ export function AppShell({
           userName={userName}
           userRole={userRole}
           userEmail={userEmail}
+          userAvatarUrl={userAvatarUrl}
           loggedInDealerId={loggedInDealerId}
           selectedDealerId={selectedDealerId}
           groupDealers={groupDealers}
           onDealerChange={onDealerChange}
           isPortalLocked={isPortalLocked}
           onLockedNavAttempt={onLockedNavAttempt}
+          showSettingsLink={showSettingsLink}
+          showGroupDealerSwitch={showGroupDealerSwitch}
         />
         <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
           <div key={pageKey}>{children}</div>

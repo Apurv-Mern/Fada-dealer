@@ -13,6 +13,7 @@ export type ParsedReportsQuery = ReportUrlQuery & {
 };
 
 const FILTER_KEYS = [
+  "search",
   "fromDate",
   "toDate",
   "departmentId",
@@ -77,6 +78,7 @@ export function reportsResourceKey(
 ): string {
   return [
     reportKey,
+    query.search,
     query.fromDate,
     query.toDate,
     query.departmentId,

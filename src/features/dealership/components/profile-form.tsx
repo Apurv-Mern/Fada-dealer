@@ -12,6 +12,7 @@ import {
 import { YearPickerField } from "@/features/dealership/components/year-picker-field";
 import {
   buildDealerProfileUpdate,
+  companyCode,
   missingRequiredProfileFields,
   type DealerProfile,
   type DealerProfileUpdateInput,
@@ -181,7 +182,7 @@ function ProfileFormFields({
           onChange={(e) => update("phone", e.target.value)}
           required
         />
-        <Input label="Company code" value={profile.dealerCode} disabled />
+        <Input label="Company code" value={companyCode(profile)} disabled />
         <YearPickerField
           label="Year of establishment"
           value={form.yearOfEstablishment}

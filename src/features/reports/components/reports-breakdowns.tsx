@@ -34,23 +34,6 @@ export function ReportsBreakdowns({ breakdowns }: ReportsBreakdownsProps) {
             </CardHeader>
             <CardContent>
               <BarChart items={chart.items} />
-              {chart.items.length <= 5 ? (
-                <ul className="mt-4 space-y-1.5 border-t border-[var(--color-border)] pt-3">
-                  {chart.items.map((item) => (
-                    <li
-                      key={item.label}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span className="text-[var(--color-text-muted)]">
-                        {item.label}
-                      </span>
-                      <span className="font-medium text-[var(--color-heading)]">
-                        {item.value}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
             </CardContent>
           </Card>
         ))}

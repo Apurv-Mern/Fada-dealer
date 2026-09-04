@@ -1,4 +1,7 @@
-import type { SessionPayload } from "@/features/auth/auth-utils";
+import {
+  normalizeStoredProfile,
+  type SessionPayload,
+} from "@/features/auth/auth-utils";
 
 const ACCESS_KEY = "fada_dealer_access_token";
 const REFRESH_KEY = "fada_dealer_refresh_token";
@@ -172,8 +175,8 @@ export function getProfile(): SessionPayload | null {
     return null;
   }
   try {
-    const data = JSON.parse(raw) as SessionPayload;
-    if (!data.email || !data.name) {
+    const data = normalizeStoredProfile(JSON.parse(raw));
+    if (!data) {
       cachedProfile = null;
       return null;
     }

@@ -252,6 +252,7 @@ export function getVisibleReportFilters(
   reportKey: DealerReportKey,
 ): ReportFilterField[] {
   const common: ReportFilterField[] = [
+    "search",
     "fromDate",
     "toDate",
     "departmentId",
@@ -281,6 +282,7 @@ export function buildReportApiQuery(
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? DEFAULT_REPORT_PAGE_SIZE;
   const query: Record<string, string | number | boolean | undefined | null> = {
+    search: params.search || undefined,
     fromDate: params.fromDate,
     toDate: params.toDate,
     departmentId: params.departmentId
@@ -311,6 +313,7 @@ export function reportUrlQueryToApiParams(
   query: ReportUrlQuery,
 ): ReportQueryParams {
   return {
+    search: query.search || undefined,
     fromDate: query.fromDate || undefined,
     toDate: query.toDate || undefined,
     departmentId: query.departmentId || undefined,
@@ -328,6 +331,7 @@ export function reportUrlQueryToApiParams(
 }
 
 const REPORT_FILTER_FIELDS: ReportFilterField[] = [
+  "search",
   "fromDate",
   "toDate",
   "departmentId",
@@ -364,8 +368,12 @@ export function reportExportParams(
   query: ReportUrlQuery,
 ): ReportQueryParams {
   const sanitized = sanitizeReportQueryForKey(reportKey, query);
-  const { page: _page, pageSize: _pageSize, ...params } =
-    reportUrlQueryToApiParams(sanitized);
+  const {
+    page: _page,
+    pageSize: _pageSize,
+    search: _search,
+    ...params
+  } = reportUrlQueryToApiParams(sanitized);
   return params;
 }
 
@@ -563,6 +571,19 @@ function breakdownColor(index: number): string {
 
 const BREAKDOWN_MAX_ITEMS = 12;
 
+const BREAKDOWN_CHART_TITLES: Record<string, string> = {
+  stages: "Onboarding stages",
+};
+
+function looksLikeSlug(value: string): boolean {
+  return /[-_]/.test(value) || (value === value.toLowerCase() && !value.includes(" "));
+}
+
+function normalizeBreakdownLabel(raw: string): string {
+  if (!raw || !looksLikeSlug(raw)) return raw;
+  return formatSummaryLabel(raw);
+}
+
 function breakdownSeries(raw: unknown): BarItem[] {
   let items: BarItem[] = [];
 
@@ -570,15 +591,18 @@ function breakdownSeries(raw: unknown): BarItem[] {
     items = raw
       .map((item, index) => {
         const record = asRecord(item);
-        const label =
-          readString(record, "label") ||
-          readString(record, "name") ||
+        const explicit =
+          readString(record, "label") || readString(record, "name");
+        const fallback =
           readString(record, "department") ||
           readString(record, "designation") ||
           readString(record, "stage") ||
           readString(record, "status") ||
           readString(record, "bucket") ||
           `Item ${index + 1}`;
+        const label = explicit
+          ? normalizeBreakdownLabel(explicit)
+          : formatSummaryLabel(fallback);
         const value =
           typeof record.value === "number"
             ? record.value
@@ -622,7 +646,7 @@ export function extractBreakdownCharts(
 ): { title: string; items: BarItem[] }[] {
   return Object.entries(breakdowns)
     .map(([key, value]) => ({
-      title: formatSummaryLabel(key),
+      title: BREAKDOWN_CHART_TITLES[key] ?? formatSummaryLabel(key),
       items: breakdownSeries(value),
     }))
     .filter((chart) => chart.items.length > 0);

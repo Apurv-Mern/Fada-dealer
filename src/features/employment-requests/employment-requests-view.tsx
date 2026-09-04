@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Download, Filter } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { PERMISSION } from "@/features/auth/permissions";
+import { usePermissions } from "@/features/auth/permissions-context";
 import {
   Button,
   Card,
@@ -66,6 +68,8 @@ export function EmploymentRequestsView({
   isRefreshing,
   onRefresh,
 }: EmploymentRequestsViewProps) {
+  const { has } = usePermissions();
+  const canManageRequests = has(PERMISSION.employmentRequestsManage);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -225,8 +229,8 @@ export function EmploymentRequestsView({
           <EmploymentRequestsCards
             rows={list.items}
             loading={isRefreshing}
-            onApprove={setPendingApprove}
-            onReject={setPendingReject}
+            onApprove={canManageRequests ? setPendingApprove : undefined}
+            onReject={canManageRequests ? setPendingReject : undefined}
             onView={(row) =>
               row.requestType === "Join"
                 ? setViewingJoin(row)
@@ -236,8 +240,8 @@ export function EmploymentRequestsView({
           <EmploymentRequestsTable
             rows={list.items}
             loading={isRefreshing}
-            onApprove={setPendingApprove}
-            onReject={setPendingReject}
+            onApprove={canManageRequests ? setPendingApprove : undefined}
+            onReject={canManageRequests ? setPendingReject : undefined}
             onView={(row) =>
               row.requestType === "Join"
                 ? setViewingJoin(row)
@@ -328,14 +332,22 @@ export function EmploymentRequestsView({
         onOpenChange={(open) => {
           if (!open) setViewingExit(null);
         }}
-        onApprove={(row) => {
-          setViewingExit(null);
-          setPendingApprove(row);
-        }}
-        onReject={(row) => {
-          setViewingExit(null);
-          setPendingReject(row);
-        }}
+        onApprove={
+          canManageRequests
+            ? (row) => {
+                setViewingExit(null);
+                setPendingApprove(row);
+              }
+            : undefined
+        }
+        onReject={
+          canManageRequests
+            ? (row) => {
+                setViewingExit(null);
+                setPendingReject(row);
+              }
+            : undefined
+        }
         onAdvanced={onRefresh}
       />
 
@@ -345,14 +357,22 @@ export function EmploymentRequestsView({
         onOpenChange={(open) => {
           if (!open) setViewingJoin(null);
         }}
-        onApprove={(row) => {
-          setViewingJoin(null);
-          setPendingApprove(row);
-        }}
-        onReject={(row) => {
-          setViewingJoin(null);
-          setPendingReject(row);
-        }}
+        onApprove={
+          canManageRequests
+            ? (row) => {
+                setViewingJoin(null);
+                setPendingApprove(row);
+              }
+            : undefined
+        }
+        onReject={
+          canManageRequests
+            ? (row) => {
+                setViewingJoin(null);
+                setPendingReject(row);
+              }
+            : undefined
+        }
         onAdvanced={onRefresh}
       />
     </div>

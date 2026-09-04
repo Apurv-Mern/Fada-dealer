@@ -62,6 +62,7 @@ export type ReportResult = {
 export const DEFAULT_REPORT_PAGE_SIZE = 50;
 
 export type ReportFilterField =
+  | "search"
   | "fromDate"
   | "toDate"
   | "departmentId"
@@ -75,6 +76,7 @@ export type ReportFilterField =
   | "eventType";
 
 export type ReportUrlQuery = {
+  search: string;
   fromDate: string;
   toDate: string;
   departmentId: string;
@@ -94,6 +96,7 @@ export function emptyReportUrlQuery(
   pageSize = DEFAULT_REPORT_PAGE_SIZE,
 ): ReportUrlQuery {
   return {
+    search: "",
     fromDate: "",
     toDate: "",
     departmentId: "",
@@ -111,6 +114,7 @@ export function emptyReportUrlQuery(
 }
 
 export type ReportQueryParams = {
+  search?: string;
   fromDate?: string;
   toDate?: string;
   departmentId?: string;

@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown, Download } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { PERMISSION } from "@/features/auth/permissions";
+import { usePermissions } from "@/features/auth/permissions-context";
 import {
   Button,
   DropdownMenu,
@@ -98,11 +100,20 @@ export function ReportsView({
   query,
   isRefreshing,
 }: ReportsViewProps) {
+  const { has } = usePermissions();
+  const canExportReports = has(PERMISSION.reportsExport);
   const router = useRouter();
   const pathname = usePathname();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [exporting, setExporting] = useState<ReportExportFormat | null>(null);
   const [filterDraft, setFilterDraft] = useState<ReportUrlQuery>(query);
+  const [searchDraft, setSearchDraft] = useState(query.search);
+  const [searchFromUrl, setSearchFromUrl] = useState(query.search);
+
+  if (query.search !== searchFromUrl) {
+    setSearchFromUrl(query.search);
+    setSearchDraft(query.search);
+  }
 
   useEffect(() => {
     setFilterDraft(query);
@@ -116,6 +127,14 @@ export function ReportsView({
     },
     [router, pathname],
   );
+
+  useEffect(() => {
+    if (searchDraft === query.search) return;
+    const handle = window.setTimeout(() => {
+      syncUrl(reportKey, { ...query, search: searchDraft, page: 1 });
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [searchDraft, query, reportKey, syncUrl]);
 
   const reportIndex = filters.reports.findIndex((item) => item.key === reportKey);
   const activeReport =
@@ -155,11 +174,15 @@ export function ReportsView({
       pageSize: query.pageSize,
     };
     setFilterDraft(cleared);
+    setSearchDraft("");
     syncUrl(reportKey, cleared);
   };
 
   const handleRemoveChip = (key: ReportFilterField) => {
     const next = { ...query, [key]: "", page: 1 };
+    if (key === "search") {
+      setSearchDraft("");
+    }
     setFilterDraft((prev) => ({ ...prev, [key]: "" }));
     syncUrl(reportKey, next);
   };
@@ -214,7 +237,8 @@ export function ReportsView({
         title="Reports"
         description="Operational reports for employees and adoption across your dealership."
         actions={
-          <DropdownMenu
+          canExportReports ? (
+            <DropdownMenu
             trigger={
               <Button
                 variant="outline"
@@ -247,7 +271,8 @@ export function ReportsView({
             >
               Export PDF
             </DropdownMenuItem>
-          </DropdownMenu>
+            </DropdownMenu>
+          ) : undefined
         }
       />
 
@@ -277,6 +302,8 @@ export function ReportsView({
         applied={query}
         draft={filterDraft}
         filterOptions={filters}
+        searchDraft={searchDraft}
+        onSearchDraftChange={setSearchDraft}
         filtersOpen={filtersOpen}
         onFiltersOpenChange={setFiltersOpen}
         onDraftChange={(patch) =>

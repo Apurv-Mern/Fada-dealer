@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   deleteBusinessDocument,
@@ -9,6 +9,11 @@ import {
   uploadBusinessDocument,
   uploadDealerProfilePicture,
 } from "@/features/dealership/api";
+import {
+  clearTokens,
+  getProfile,
+  setSession,
+} from "@/features/auth/token-store";
 import { apiFetch, apiUploadFile, isMockMode } from "@/lib/api";
 import { ApiError } from "@/lib/api/errors";
 
@@ -155,6 +160,17 @@ describe("deleteBusinessDocument", () => {
 });
 
 describe("mapDealerProfile", () => {
+  it("maps top-level id as company id when dealerCode is absent", () => {
+    const profile = mapDealerProfile({
+      id: 40,
+      name: "Alex motor showrrom",
+      email: "alx28@mailinator.com",
+    });
+
+    expect(profile.id).toBe("40");
+    expect(profile.dealerCode).toBe("");
+  });
+
   it("maps live GET brands string onto brandsRepresented", () => {
     const profile = mapDealerProfile({
       id: 33,
@@ -305,7 +321,24 @@ describe("mapDealerProfile", () => {
 });
 
 describe("uploadDealerProfilePicture", () => {
+  beforeEach(() => {
+    clearTokens();
+    setSession({
+      accessToken: "token",
+      profile: {
+        id: "16",
+        email: "test@example.com",
+        name: "Test Motors",
+        roleLabel: "Dealer Admin",
+        userType: "dealer",
+        permissions: [],
+        isSuperRole: true,
+      },
+    });
+  });
+
   afterEach(() => {
+    clearTokens();
     vi.mocked(isMockMode).mockReturnValue(true);
     vi.mocked(apiFetch).mockReset();
     vi.mocked(apiUploadFile).mockReset();
@@ -330,6 +363,9 @@ describe("uploadDealerProfilePicture", () => {
       body: { fileUrl: "https://api.fadaid.com/uploads/new-logo.png" },
     });
     expect(url).toBe("https://api.fadaid.com/uploads/new-logo.png");
+    expect(getProfile()?.logoUrl).toBe(
+      "https://api.fadaid.com/uploads/new-logo.png",
+    );
   });
 
   it("falls back to the uploaded URL when persist response omits it", async () => {

@@ -17,11 +17,13 @@ import { dealerLogout } from "@/features/auth/client-auth";
 import type { GroupDealer } from "@/features/branches/types";
 import { NotificationsBellDropdown } from "@/features/notifications/components/notifications-bell-dropdown";
 import { routes } from "@/config/navigation";
+import { toDisplayableFileUrl } from "@/lib/api";
 
 export type AppHeaderProps = {
   userName?: string;
   userRole?: string;
   userEmail?: string;
+  userAvatarUrl?: string | null;
   /** Logged-in dealer id (the "you" row). */
   loggedInDealerId?: string;
   /** Currently selected dealer for `x-dealer-id`. */
@@ -32,6 +34,8 @@ export type AppHeaderProps = {
   onMenuClick?: () => void;
   isPortalLocked?: boolean;
   onLockedNavAttempt?: () => void;
+  showSettingsLink?: boolean;
+  showGroupDealerSwitch?: boolean;
 };
 
 function dealerLabel(name: string, dealerCode?: string) {
@@ -42,6 +46,7 @@ export function AppHeader({
   userName = "Company Admin",
   userRole = "Company Admin",
   userEmail,
+  userAvatarUrl,
   loggedInDealerId,
   selectedDealerId,
   groupDealers,
@@ -49,10 +54,13 @@ export function AppHeader({
   onMenuClick,
   isPortalLocked = false,
   onLockedNavAttempt,
+  showSettingsLink = true,
+  showGroupDealerSwitch = true,
 }: AppHeaderProps) {
   const router = useRouter();
   const signedInAs = userEmail?.trim() || userName;
-  const showDealerships = Boolean(groupDealers && groupDealers.length > 0);
+  const showDealerships =
+    showGroupDealerSwitch && Boolean(groupDealers && groupDealers.length > 0);
   const selfId = loggedInDealerId ?? "";
   const activeId = selectedDealerId || selfId;
   const selectedChild = groupDealers?.find((g) => g.id === activeId);
@@ -178,7 +186,11 @@ export function AppHeader({
                 className="flex items-center gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                 aria-label="Account menu"
               >
-                <Avatar name={userName} size="md" />
+                <Avatar
+                  name={userName}
+                  src={toDisplayableFileUrl(userAvatarUrl) || undefined}
+                  size="md"
+                />
                 <div className="hidden leading-tight sm:block">
                   <p className="text-sm font-semibold text-[var(--color-heading)]">
                     {userName}
@@ -200,11 +212,15 @@ export function AppHeader({
               </p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSettings}>
-              <Settings className="size-4" />
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            {showSettingsLink ? (
+              <>
+                <DropdownMenuItem onClick={handleSettings}>
+                  <Settings className="size-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
             <DropdownMenuItem destructive onClick={handleLogout}>
               <LogOut className="size-4" />
               Logout

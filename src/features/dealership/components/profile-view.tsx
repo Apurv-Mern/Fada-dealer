@@ -4,6 +4,7 @@ import { BrandsReadonlyChips } from "@/features/dealership/components/brands-rea
 import { ProfileFieldValue } from "@/features/dealership/components/profile-field-value";
 import { ProfileImageUploader } from "@/features/dealership/components/profile-image-uploader";
 import {
+  companyCode,
   displayValue,
   type DealerProfile,
 } from "@/features/dealership/types";
@@ -63,7 +64,7 @@ export function DealershipProfileView({
           />
           <Field
             label="Company Code"
-            value={<ProfileFieldValue value={profile.dealerCode} />}
+            value={<ProfileFieldValue value={companyCode(profile)} />}
           />
           <Field
             label="Year of Establishment"

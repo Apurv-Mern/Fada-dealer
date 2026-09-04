@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus, Upload } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { PERMISSION } from "@/features/auth/permissions";
+import { usePermissions } from "@/features/auth/permissions-context";
 import { Button } from "@/components/ui";
 import { BranchesAddDialog } from "@/features/branches/components/branches-add-dialog";
 import { BranchesImportDialog } from "@/features/branches/components/branches-import-dialog";
@@ -59,6 +61,8 @@ export type BranchesViewProps = {
 };
 
 export function BranchesView({ dashboard, onRefresh }: BranchesViewProps) {
+  const { has } = usePermissions();
+  const canManageOutlets = has(PERMISSION.outletsManage);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -100,8 +104,10 @@ export function BranchesView({ dashboard, onRefresh }: BranchesViewProps) {
   return (
     <div>
       <BranchesHeader
-        showAddBranch
-        onImportOutlets={() => setImportDialogOpen(true)}
+        showAddBranch={canManageOutlets}
+        onImportOutlets={
+          canManageOutlets ? () => setImportDialogOpen(true) : undefined
+        }
         onAddBranch={() => {
           setEditing(null);
           setAddOpen(true);
@@ -113,10 +119,14 @@ export function BranchesView({ dashboard, onRefresh }: BranchesViewProps) {
         branches={branches}
         period={period}
         onPeriodChange={setPeriod}
-        onEdit={(branch) => {
-          setEditing(branch);
-          setAddOpen(true);
-        }}
+        onEdit={
+          canManageOutlets
+            ? (branch) => {
+                setEditing(branch);
+                setAddOpen(true);
+              }
+            : undefined
+        }
         onChanged={onRefresh}
       />
       <BranchesCharts

@@ -1,5 +1,7 @@
+import { getProfile, setProfile } from "@/features/auth/token-store";
 import { apiFetch, apiUploadFile, isMockMode } from "@/lib/api";
 import { ApiError } from "@/lib/api/errors";
+import { extractLogoUrl } from "@/lib/logo-url";
 import { mockDelay, unwrapApiData } from "@/lib/api/parse";
 import {
   emptyActivity,
@@ -28,18 +30,6 @@ function asRecord(value: unknown): Record<string, unknown> {
 function readString(record: Record<string, unknown>, key: string): string {
   const value = record[key];
   return typeof value === "string" ? value : value != null ? String(value) : "";
-}
-
-/** Image URL for display; empty when missing or non-displayable. */
-function normalizeImageUrl(value: unknown): string {
-  if (value == null) return "";
-  const text = String(value).trim();
-  if (!text || text === "null" || text === "undefined") return "";
-  return text;
-}
-
-function readImageUrl(record: Record<string, unknown>, key: string): string {
-  return normalizeImageUrl(record[key]);
 }
 
 function readNumber(record: Record<string, unknown>, key: string): number {
@@ -273,17 +263,7 @@ export function mapDealerProfile(raw: unknown): DealerProfile {
       readString(primaryContact, "phone") ||
       readString(record, "primaryContactPhone") ||
       readString(profile, "primaryContactPhone"),
-    logoUrl:
-      readImageUrl(record, "profilePicture") ||
-      readImageUrl(record, "logoUrl") ||
-      readImageUrl(record, "avatarUrl") ||
-      readImageUrl(record, "profileImage") ||
-      readImageUrl(record, "fileUrl") ||
-      readImageUrl(profile, "profilePicture") ||
-      readImageUrl(profile, "logoUrl") ||
-      readImageUrl(profile, "avatarUrl") ||
-      readImageUrl(profile, "profileImage") ||
-      readImageUrl(profile, "fileUrl"),
+    logoUrl: extractLogoUrl(record, profile),
   };
 }
 
@@ -371,11 +351,29 @@ export async function getDealerProfile(): Promise<DealerProfile> {
   return mapDealerProfile(unwrapApiData(body) ?? body);
 }
 
+/** Fetch logged-in dealer company logo (explicit dealer context for header). */
+export async function getDealerLogoUrl(dealerId: string): Promise<string> {
+  if (isMockMode()) {
+    await mockDelay();
+    return mockDealerProfile.logoUrl;
+  }
+  const body = await apiFetch<unknown>("/dealers/user/profile", {
+    headers: { "x-dealer-id": dealerId },
+  });
+  return mapDealerProfile(unwrapApiData(body) ?? body).logoUrl;
+}
+
 function brandNamesFromIds(ids: number[]): string {
   return enrichProfileBrandNames(
     { ...mockDealerProfile, brandIds: ids, brandsRepresented: "" },
     mockBrands,
   ).brandsRepresented;
+}
+
+function persistSessionLogoUrl(logoUrl: string): void {
+  const profile = getProfile();
+  if (!profile || !logoUrl.trim()) return;
+  setProfile({ ...profile, logoUrl });
 }
 
 /**
@@ -392,6 +390,7 @@ export async function uploadDealerProfilePicture(file: File): Promise<string> {
         ? URL.createObjectURL(file)
         : `https://api.fadaid.com/uploads/mock-profile-${Date.now()}.png`;
     mockDealerProfile.logoUrl = url;
+    persistSessionLogoUrl(url);
     return url;
   }
 
@@ -410,6 +409,7 @@ export async function uploadDealerProfilePicture(file: File): Promise<string> {
     readString(data, "url") ||
     uploadedUrl;
 
+  persistSessionLogoUrl(savedUrl);
   return savedUrl;
 }
 

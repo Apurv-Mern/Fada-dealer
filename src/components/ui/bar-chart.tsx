@@ -42,7 +42,7 @@ export function BarChart({ items, max, className }: BarChartProps) {
         {items.map((item) => (
           <p
             key={item.label}
-            className="flex-1 text-center text-xs text-[var(--color-text-muted)]"
+            className="min-w-0 flex-1 break-words text-center text-xs leading-snug text-[var(--color-text-muted)] line-clamp-2"
           >
             {item.label}
           </p>

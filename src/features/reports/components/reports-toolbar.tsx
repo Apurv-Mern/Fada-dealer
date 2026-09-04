@@ -2,7 +2,7 @@
 
 import { Filter, X } from "lucide-react";
 
-import { Badge, Button, Sheet } from "@/components/ui";
+import { Badge, Button, SearchInput, Sheet } from "@/components/ui";
 import { ReportsFilters } from "@/features/reports/components/reports-filters";
 import { formatSummaryLabel } from "@/features/reports/map-report";
 import type {
@@ -25,6 +25,8 @@ export type ReportsToolbarProps = {
   applied: ReportUrlQuery;
   draft: ReportUrlQuery;
   filterOptions: ReportFiltersMetadata;
+  searchDraft: string;
+  onSearchDraftChange: (value: string) => void;
   filtersOpen: boolean;
   onFiltersOpenChange: (open: boolean) => void;
   onDraftChange: (patch: Partial<ReportUrlQuery>) => void;
@@ -67,6 +69,8 @@ export function ReportsToolbar({
   applied,
   draft,
   filterOptions,
+  searchDraft,
+  onSearchDraftChange,
   filtersOpen,
   onFiltersOpenChange,
   onDraftChange,
@@ -83,6 +87,9 @@ export function ReportsToolbar({
 
   const chips: Array<{ key: ReportFilterField; label: string }> = [];
 
+  if (applied.search) {
+    chips.push({ key: "search", label: `Search: ${applied.search}` });
+  }
   if (applied.fromDate) {
     chips.push({ key: "fromDate", label: `From ${applied.fromDate}` });
   }
@@ -135,6 +142,16 @@ export function ReportsToolbar({
     if (label) chips.push({ key: "eventType", label });
   }
 
+  const searchControl = (
+    <SearchInput
+      aria-label="Search employees"
+      placeholder="Search by name, FADA ID, email, or phone"
+      value={searchDraft}
+      onChange={(event) => onSearchDraftChange(event.target.value)}
+      className="w-full"
+    />
+  );
+
   const filterControls = (
     <ReportsFilters
       reportKey={reportKey}
@@ -146,6 +163,7 @@ export function ReportsToolbar({
 
   return (
     <div className="mb-6 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <div className="mb-3 hidden md:block">{searchControl}</div>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="hidden min-w-0 flex-1 gap-3 md:grid md:grid-cols-2 xl:grid-cols-4">
           {filterControls}
@@ -184,6 +202,7 @@ export function ReportsToolbar({
 
       <Sheet open={filtersOpen} onOpenChange={onFiltersOpenChange} title="Report filters">
         <div className="space-y-3 p-4">
+          <div className="md:hidden">{searchControl}</div>
           {filterControls}
           <Button
             className="w-full"

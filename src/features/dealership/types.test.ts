@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   PROFILE_EMPTY_MARKER,
   buildDealerProfileUpdate,
+  companyCode,
   displayProfileField,
   missingRequiredProfileFields,
   type DealerProfile,
@@ -74,6 +75,22 @@ describe("displayProfileField", () => {
 
   it("returns trimmed text when present", () => {
     expect(displayProfileField("  Jaipur  ")).toBe("Jaipur");
+  });
+});
+
+describe("companyCode", () => {
+  it("returns profile id as the company code", () => {
+    expect(companyCode(baseProfile({ id: "40" }))).toBe("40");
+  });
+
+  it("trims whitespace and ignores dealerCode", () => {
+    expect(
+      companyCode(baseProfile({ id: "  40  ", dealerCode: "vn2806" })),
+    ).toBe("40");
+  });
+
+  it("returns empty when id is blank", () => {
+    expect(companyCode(baseProfile({ id: "" }))).toBe("");
   });
 });
 

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Phone } from "lucide-react";
 
-import { dealerNavItems, routes } from "@/config/navigation";
+import { getAllowedNavItems, routes } from "@/config/navigation";
+import { useOptionalPermissions } from "@/features/auth/permissions-context";
 import { cn } from "@/lib/utils/cn";
 
 export type SidebarProps = {
@@ -21,6 +22,10 @@ export function Sidebar({
   onLockedNavAttempt,
 }: SidebarProps) {
   const pathname = usePathname();
+  const permissions = useOptionalPermissions();
+  const navItems = permissions
+    ? getAllowedNavItems(permissions.has, permissions.hasAny)
+    : getAllowedNavItems(() => true, () => true);
 
   return (
     <aside
@@ -44,7 +49,7 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {dealerNavItems.map((item) => {
+        {navItems.map((item) => {
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;

@@ -27,7 +27,10 @@ describe("dealerLogout", () => {
         id: "16",
         email: "a@b.com",
         name: "A",
-        role: "Admin",
+        roleLabel: "Dealer Admin",
+        userType: "dealer",
+        permissions: [],
+        isSuperRole: true,
       },
     });
   });

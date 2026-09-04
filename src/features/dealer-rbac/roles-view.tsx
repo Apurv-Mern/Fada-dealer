@@ -16,36 +16,33 @@ import {
   toast,
 } from "@/components/ui";
 import { toAuthErrorMessage } from "@/features/auth/client-auth";
-import { updateDealerUser } from "@/features/dealer-users/api";
-import { DealerUserDialog } from "@/features/dealer-users/components/dealer-users-dialog";
-import { DealerUsersCards } from "@/features/dealer-users/components/dealer-users-cards";
-import { DealerUsersTable } from "@/features/dealer-users/components/dealer-users-table";
-import type { DealerUser } from "@/features/dealer-users/types";
+import { usePermissions } from "@/features/auth/permissions-context";
+import { deleteRole } from "@/features/dealer-rbac/api";
+import { RoleDialog } from "@/features/dealer-rbac/components/role-dialog";
+import { RolesTable } from "@/features/dealer-rbac/components/roles-table";
+import type { PortalRole } from "@/features/dealer-rbac/types";
 import type { ListResult } from "@/types/api";
 
-export function DealerUsersView({
+export function RolesView({
   list,
-  activeAdminCount,
   query,
   isRefreshing,
   onRefresh,
 }: {
-  list: ListResult<DealerUser>;
-  activeAdminCount: number;
+  list: ListResult<PortalRole>;
   query: { q: string; page: number; pageSize: number };
   isRefreshing: boolean;
   onRefresh?: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { canManageRoles } = usePermissions();
   const [searchDraft, setSearchDraft] = useState(query.q);
   const [searchFromUrl, setSearchFromUrl] = useState(query.q);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<DealerUser | null>(null);
-  const [pendingDeactivate, setPendingDeactivate] = useState<DealerUser | null>(
-    null,
-  );
-  const [deactivating, setDeactivating] = useState(false);
+  const [editing, setEditing] = useState<PortalRole | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<PortalRole | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   if (query.q !== searchFromUrl) {
     setSearchFromUrl(query.q);
@@ -54,13 +51,16 @@ export function DealerUsersView({
 
   const syncUrl = useCallback(
     (next: { page?: number; pageSize?: number; q?: string }) => {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams(window.location.search);
       const nextPage = next.page ?? query.page;
       const nextPageSize = next.pageSize ?? query.pageSize;
       const nextQ = next.q ?? query.q;
       if (nextQ) params.set("q", nextQ);
+      else params.delete("q");
       if (nextPage > 1) params.set("page", String(nextPage));
+      else params.delete("page");
       if (nextPageSize !== 10) params.set("pageSize", String(nextPageSize));
+      else params.delete("pageSize");
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
@@ -75,116 +75,95 @@ export function DealerUsersView({
     return () => window.clearTimeout(handle);
   }, [searchDraft, query.q, syncUrl]);
 
-  function openInvite() {
-    setEditing(null);
-    setDialogOpen(true);
-  }
-
-  function openEdit(user: DealerUser) {
-    setEditing(user);
-    setDialogOpen(true);
-  }
-
-  async function confirmDeactivate() {
-    if (!pendingDeactivate) return;
-    if (
-      pendingDeactivate.role === "dealer_admin" &&
-      pendingDeactivate.isActive &&
-      activeAdminCount <= 1
-    ) {
-      toast.error("Cannot deactivate the last company admin");
-      return;
-    }
-    setDeactivating(true);
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
     try {
-      await updateDealerUser(pendingDeactivate.id, {
-        name: pendingDeactivate.name,
-        phone: pendingDeactivate.phone,
-        role: pendingDeactivate.role,
-        isActive: false,
-      });
-      toast.success("User deactivated");
-      setPendingDeactivate(null);
+      await deleteRole(pendingDelete.id);
+      toast.success("Role deleted");
+      setPendingDelete(null);
       onRefresh?.();
     } catch (err) {
-      toast.error(toAuthErrorMessage(err, "Failed to deactivate user"));
+      toast.error(toAuthErrorMessage(err, "Failed to delete role"));
     } finally {
-      setDeactivating(false);
+      setDeleting(false);
     }
   }
 
   return (
     <div>
       <PageHeader
-        title="Settings"
-        description="Manage company portal users and access roles."
+        title="Roles & permissions"
+        description="Define portal roles and assign module permissions for staff accounts."
         actions={
-          <Button onClick={openInvite}>
-            <Plus />
-            Invite User
-          </Button>
+          canManageRoles ? (
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setDialogOpen(true);
+              }}
+            >
+              <Plus />
+              Create role
+            </Button>
+          ) : undefined
         }
       />
 
       <Card>
         <CardHeader className="flex-col items-stretch gap-4 sm:flex-row sm:items-center">
           <SearchInput
-            placeholder="Search by name, email, or role"
+            placeholder="Search by name or key"
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             containerClassName="w-full sm:min-w-0 sm:flex-1"
           />
         </CardHeader>
         <CardContent className="px-0 pb-0">
-          <DealerUsersCards
+          <RolesTable
             rows={list.items}
             loading={isRefreshing}
-            activeAdminCount={activeAdminCount}
-            onEdit={openEdit}
-            onDeactivate={setPendingDeactivate}
-          />
-          <DealerUsersTable
-            rows={list.items}
-            loading={isRefreshing}
-            activeAdminCount={activeAdminCount}
-            onEdit={openEdit}
-            onDeactivate={setPendingDeactivate}
+            onEdit={(role) => {
+              setEditing(role);
+              setDialogOpen(true);
+            }}
+            onDelete={setPendingDelete}
           />
           <Pagination
             page={list.page}
             pageSize={list.pageSize}
             total={list.total}
-            label="users"
+            label="roles"
             onPageChange={(next) => syncUrl({ page: next })}
             onPageSizeChange={(size) => syncUrl({ page: 1, pageSize: size })}
           />
         </CardContent>
       </Card>
 
-      <DealerUserDialog
+      <RoleDialog
         open={dialogOpen}
         onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) setEditing(null);
         }}
-        user={editing}
+        role={editing}
         onSaved={onRefresh}
       />
 
       <ConfirmDialog
-        open={pendingDeactivate !== null}
+        open={pendingDelete !== null}
         onOpenChange={(open) => {
-          if (!open) setPendingDeactivate(null);
+          if (!open) setPendingDelete(null);
         }}
-        title="Deactivate user?"
+        title="Delete role?"
         description={
-          pendingDeactivate
-            ? `Deactivate “${pendingDeactivate.name}”? They will lose portal access.`
+          pendingDelete
+            ? `Delete “${pendingDelete.name}”? Roles assigned to staff cannot be deleted.`
             : undefined
         }
-        confirmLabel="Deactivate"
-        isLoading={deactivating}
-        onConfirm={confirmDeactivate}
+        confirmLabel="Delete"
+        isLoading={deleting}
+        onConfirm={confirmDelete}
       />
     </div>
   );

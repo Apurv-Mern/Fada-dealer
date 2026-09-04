@@ -134,6 +134,14 @@ export function displayValue(value: unknown): string {
   return text;
 }
 
+/**
+ * Company Code shown on Company Profile.
+ * Product rule: API top-level `id` is the company code (not `dealerCode`).
+ */
+export function companyCode(profile: Pick<DealerProfile, "id">): string {
+  return displayValue(profile.id);
+}
+
 /** Placeholder shown for unfilled read-only profile fields. */
 export const PROFILE_EMPTY_MARKER = "____";
 

@@ -18,17 +18,19 @@ export function DealershipProfileSection({
   editing,
   onEditingChange,
   onSaved,
+  canEdit = true,
 }: {
   profile: DealerProfile;
   editing: boolean;
   onEditingChange: (editing: boolean) => void;
   onSaved?: () => void;
+  canEdit?: boolean;
 }) {
   return (
     <Card id="business-profile">
       <CardHeader>
         <CardTitle>Business Profile</CardTitle>
-        {!editing ? (
+        {!editing && canEdit ? (
           <Button size="sm" onClick={() => onEditingChange(true)}>
             <Pencil />
             Edit Profile

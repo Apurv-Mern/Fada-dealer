@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Info } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { PERMISSION } from "@/features/auth/permissions";
+import { usePermissions } from "@/features/auth/permissions-context";
 import { Badge } from "@/components/ui/badge";
 import { DealershipActivityOverview } from "@/features/dealership/components/activity-overview";
 import { DealershipBusinessDetailsCard } from "@/features/dealership/components/business-details-card";
@@ -25,6 +27,8 @@ export function DealershipView({
   data: DealershipPageData;
   onRefresh?: () => void;
 }) {
+  const { has } = usePermissions();
+  const canEditProfile = has(PERMISSION.companyProfileEdit);
   const [editing, setEditing] = useState(false);
   const accountStatus = parseDealerAccountStatus(data.profile.status);
   const bannerMessage = dealerProfileBannerMessage(accountStatus);
@@ -85,6 +89,7 @@ export function DealershipView({
         editing={editing}
         onEditingChange={setEditing}
         onSaved={onRefresh}
+        canEdit={canEditProfile}
       />
 
       <div className="grid gap-4 lg:grid-cols-3 lg:items-stretch">
@@ -99,7 +104,7 @@ export function DealershipView({
         <DealershipBusinessDetailsCard
           profile={data.profile}
           editing={editing}
-          onEdit={startEdit}
+          onEdit={canEditProfile ? startEdit : undefined}
         />
       </div>
 

@@ -17,10 +17,19 @@ import {
   getProfile,
   isLoggedIn,
   setActingDealerId,
+  setProfile,
   subscribeAuthStore,
 } from "@/features/auth/token-store";
+import { resolveSessionDealerId } from "@/features/auth/auth-utils";
+import { getDealerLogoUrl } from "@/features/dealership/api";
+import { PermissionRouteGuard } from "@/features/auth/permission-route-guard";
+import {
+  PermissionsProvider,
+  usePermissions,
+} from "@/features/auth/permissions-context";
+import { isPrimaryDealer } from "@/features/auth/permissions";
+import { canShowSettingsLink, routes } from "@/config/navigation";
 import { NotificationsProvider } from "@/features/notifications/notifications-context";
-import { routes } from "@/config/navigation";
 import { useAsyncResource } from "@/lib/hooks/use-async-resource";
 
 /** Client-only readiness (false on server / first SSR snapshot). */
@@ -36,6 +45,7 @@ function getServerReady() {
 
 function PortalAppShell({ children }: { children: React.ReactNode }) {
   const { isLocked, showLockDialog } = useDealerPortalLock();
+  const { has, hasAny } = usePermissions();
   const profile = useSyncExternalStore(
     subscribeAuthStore,
     getProfile,
@@ -47,7 +57,8 @@ function PortalAppShell({ children }: { children: React.ReactNode }) {
     () => null,
   );
 
-  const isHolding = profile?.isGroupHoldingEntity === true;
+  const isHolding =
+    profile?.isGroupHoldingEntity === true && isPrimaryDealer(profile);
   const groupsLoader = useCallback(() => getGroupDealers(), []);
   const { data: groupDealers } = useAsyncResource<GroupDealer[]>({
     key: isHolding ? "nav-group-dealers" : "nav-group-dealers|off",
@@ -70,19 +81,48 @@ function PortalAppShell({ children }: { children: React.ReactNode }) {
     }
   }, [selfId, groupDealers, actingDealerId]);
 
+  useEffect(() => {
+    if (!profile?.logoUrl?.trim()) {
+      const dealerId = resolveSessionDealerId(profile);
+      if (!dealerId) return;
+
+      let cancelled = false;
+
+      void getDealerLogoUrl(dealerId)
+        .then((logoUrl) => {
+          if (cancelled || !logoUrl.trim()) return;
+          const current = getProfile();
+          if (!current || current.logoUrl?.trim()) return;
+          setProfile({ ...current, logoUrl });
+        })
+        .catch(() => {
+          // Header keeps initials on failure; 401 handled by apiFetch.
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [profile?.id, profile?.logoUrl, profile?.parentDealerId, profile?.userType]);
+
   return (
     <AppShell
       userName={profile?.name}
-      userRole={profile?.role}
+      userRole={profile?.roleLabel}
       userEmail={profile?.email}
+      userAvatarUrl={profile?.logoUrl}
       loggedInDealerId={selfId || undefined}
       selectedDealerId={actingDealerId ?? undefined}
       groupDealers={navGroupDealers}
       onDealerChange={setActingDealerId}
       isPortalLocked={isLocked}
       onLockedNavAttempt={showLockDialog}
+      showSettingsLink={canShowSettingsLink(has, hasAny)}
+      showGroupDealerSwitch={isPrimaryDealer(profile)}
     >
-      <DealerPortalRouteGuard>{children}</DealerPortalRouteGuard>
+      <DealerPortalRouteGuard>
+        <PermissionRouteGuard>{children}</PermissionRouteGuard>
+      </DealerPortalRouteGuard>
     </AppShell>
   );
 }
@@ -123,8 +163,9 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     return (
       <AppShell
         userName={ready ? profile?.name : undefined}
-        userRole={ready ? profile?.role : undefined}
+        userRole={ready ? profile?.roleLabel : undefined}
         userEmail={ready ? profile?.email : undefined}
+        userAvatarUrl={ready ? profile?.logoUrl : undefined}
         loggedInDealerId={ready ? profile?.id : undefined}
         selectedDealerId={ready ? (actingDealerId ?? undefined) : undefined}
       >
@@ -135,9 +176,11 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
 
   return (
     <DealerStatusProvider actingDealerId={actingDealerId}>
-      <NotificationsProvider actingDealerId={actingDealerId}>
-        <PortalAppShell>{children}</PortalAppShell>
-      </NotificationsProvider>
+      <PermissionsProvider>
+        <NotificationsProvider actingDealerId={actingDealerId}>
+          <PortalAppShell>{children}</PortalAppShell>
+        </NotificationsProvider>
+      </PermissionsProvider>
     </DealerStatusProvider>
   );
 }
