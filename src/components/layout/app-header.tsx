@@ -17,7 +17,6 @@ import { dealerLogout } from "@/features/auth/client-auth";
 import type { GroupDealer } from "@/features/branches/types";
 import { NotificationsBellDropdown } from "@/features/notifications/components/notifications-bell-dropdown";
 import { routes } from "@/config/navigation";
-import { toDisplayableFileUrl } from "@/lib/api";
 
 export type AppHeaderProps = {
   userName?: string;
@@ -186,11 +185,7 @@ export function AppHeader({
                 className="flex items-center gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                 aria-label="Account menu"
               >
-                <Avatar
-                  name={userName}
-                  src={toDisplayableFileUrl(userAvatarUrl) || undefined}
-                  size="md"
-                />
+                <Avatar name={userName} src={userAvatarUrl} size="md" />
                 <div className="hidden leading-tight sm:block">
                   <p className="text-sm font-semibold text-[var(--color-heading)]">
                     {userName}

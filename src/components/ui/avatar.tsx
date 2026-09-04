@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { getDisplayableFileUrlCandidates } from "@/lib/api";
 import { cn } from "@/lib/utils/cn";
 
 export type AvatarProps = {
@@ -59,24 +60,38 @@ export function Avatar({
   fallback = "initials",
   className,
 }: AvatarProps) {
-  const [imageFailed, setImageFailed] = React.useState(false);
+  const candidates = React.useMemo(
+    () => getDisplayableFileUrlCandidates(src),
+    [src],
+  );
+  const [candidateIndex, setCandidateIndex] = React.useState(0);
 
   React.useEffect(() => {
-    setImageFailed(false);
+    setCandidateIndex(0);
   }, [src]);
 
-  if (src && !imageFailed) {
+  const currentUrl =
+    candidateIndex >= 0 && candidateIndex < candidates.length
+      ? candidates[candidateIndex]
+      : null;
+
+  if (currentUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={src}
+        key={currentUrl}
+        src={currentUrl}
         alt={name}
         className={cn(
           "shrink-0 rounded-full object-cover",
           sizeMap[size],
           className,
         )}
-        onError={() => setImageFailed(true)}
+        onError={() => {
+          setCandidateIndex((index) =>
+            index + 1 < candidates.length ? index + 1 : candidates.length,
+          );
+        }}
       />
     );
   }
