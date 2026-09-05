@@ -3,6 +3,7 @@ import type { BadgeProps } from "@/components/ui/badge";
 import {
   DEALER_REPORT_KEYS,
   DEFAULT_REPORT_PAGE_SIZE,
+  EVENT_TYPE_OPTIONS,
   type DealerReportKey,
   type ReportCatalogItem,
   type ReportFilterField,
@@ -211,7 +212,7 @@ export function mapReportResult(
   const summary = asRecord(record.summary);
   const rowsRaw = record.rows;
   const rows = Array.isArray(rowsRaw)
-    ? rowsRaw.map((row) => asRecord(row))
+    ? normalizeReportRows(rowsRaw.map((row) => asRecord(row)))
     : [];
   const breakdowns = asRecord(record.breakdowns);
 
@@ -393,6 +394,64 @@ export function formatSummaryLabel(key: string): string {
     .replace(/^./, (c) => c.toUpperCase());
 }
 
+const COLUMN_LABEL_OVERRIDES: Record<string, string> = {
+  dealerName: "Company Name",
+  dealershipName: "Company Name",
+  companyName: "Company Name",
+};
+
+const COMPANY_NAME_COLUMNS = new Set([
+  "dealerName",
+  "dealershipName",
+  "companyName",
+]);
+
+function readNestedName(row: Record<string, unknown>, key: string): string {
+  return readString(asRecord(row[key]), "name").trim();
+}
+
+/** Resolve company/dealership display name from flat or nested API row fields. */
+export function resolveCompanyName(row: Record<string, unknown>): string {
+  return (
+    readString(row, "dealerName").trim() ||
+    readString(row, "companyName").trim() ||
+    readString(row, "dealershipName").trim() ||
+    readNestedName(row, "dealership") ||
+    readNestedName(row, "dealer") ||
+    readNestedName(row, "company")
+  );
+}
+
+/** Flatten nested company name into dealerName for table columns. */
+export function normalizeReportRow(
+  row: Record<string, unknown>,
+): Record<string, unknown> {
+  const companyName = resolveCompanyName(row);
+  if (!companyName) return row;
+  return { ...row, dealerName: companyName };
+}
+
+export function normalizeReportRows(
+  rows: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  return rows.map(normalizeReportRow);
+}
+
+export function formatColumnLabel(key: string): string {
+  return COLUMN_LABEL_OVERRIDES[key] ?? formatSummaryLabel(key);
+}
+
+export function getReportCellValue(
+  row: Record<string, unknown>,
+  column: string,
+): unknown {
+  if (COMPANY_NAME_COLUMNS.has(column)) {
+    const companyName = resolveCompanyName(row);
+    if (companyName) return companyName;
+  }
+  return row[column];
+}
+
 const ISO_DATE_PATTERN =
   /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
 
@@ -518,6 +577,9 @@ export function formatCellValue(value: unknown, columnKey?: string): string {
     if (columnKey && isDateColumnKey(columnKey) && ISO_DATE_PATTERN.test(value)) {
       return formatReportDate(value, columnKey.toLowerCase().endsWith("at"));
     }
+    if (columnKey && KEYWORD_VALUE_COLUMNS.has(columnKey)) {
+      return formatKeywordCellValue(value, columnKey);
+    }
     return value;
   }
 
@@ -577,6 +639,29 @@ const BREAKDOWN_CHART_TITLES: Record<string, string> = {
 
 function looksLikeSlug(value: string): boolean {
   return /[-_]/.test(value) || (value === value.toLowerCase() && !value.includes(" "));
+}
+
+const KEYWORD_VALUE_COLUMNS = new Set([
+  "eventType",
+  "statusDetail",
+  "status_detail",
+]);
+
+/** Human-readable labels for slug/keyword report cell values. */
+export function formatKeywordCellValue(value: string, columnKey: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+
+  if (columnKey === "eventType") {
+    const match = EVENT_TYPE_OPTIONS.find((option) => option.value === trimmed);
+    if (match) return match.label;
+  }
+
+  if (looksLikeSlug(trimmed)) {
+    return formatSummaryLabel(trimmed);
+  }
+
+  return value;
 }
 
 function normalizeBreakdownLabel(raw: string): string {

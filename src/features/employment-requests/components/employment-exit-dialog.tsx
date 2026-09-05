@@ -256,8 +256,7 @@ function ExitDialogBody({
         {showAcceptedAt ? (
           <DetailRow label="Resignation accepted" value={row.acceptedAt} />
         ) : null}
-        <DetailRow label="Resignation" value={row.resignationDate} />
-        <DetailRow label="Last working day" value={row.lastWorkingDay} />
+        <DetailRow label="Last working date" value={row.lastWorkingDay} />
         <DetailRow label="Reason" value={row.reason} />
         <div className="grid grid-cols-[7.5rem_1fr] gap-2 text-sm sm:grid-cols-[9rem_1fr]">
           <dt className="text-[var(--color-text-muted)]">Status</dt>

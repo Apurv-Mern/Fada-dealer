@@ -20,7 +20,9 @@ import {
 import {
   deriveRowColumns,
   formatCellValue,
+  formatColumnLabel,
   formatSummaryLabel,
+  getReportCellValue,
   isStatusColumnKey,
   reportStatusBadgeVariant,
 } from "@/features/reports/map-report";
@@ -101,7 +103,7 @@ export function ReportsTable({
               <THead>
                 <TR>
                   {columns.map((column) => (
-                    <TH key={column}>{formatSummaryLabel(column)}</TH>
+                    <TH key={column}>{formatColumnLabel(column)}</TH>
                   ))}
                 </TR>
               </THead>
@@ -120,7 +122,10 @@ export function ReportsTable({
                       <TR key={rowIndex}>
                         {columns.map((column) => (
                           <TD key={column}>
-                            <ReportCell column={column} value={row[column]} />
+                            <ReportCell
+                              column={column}
+                              value={getReportCellValue(row, column)}
+                            />
                           </TD>
                         ))}
                       </TR>
@@ -150,10 +155,13 @@ export function ReportsTable({
                         className="flex items-start justify-between gap-3 text-sm"
                       >
                         <span className="text-[var(--color-text-muted)]">
-                          {formatSummaryLabel(column)}
+                          {formatColumnLabel(column)}
                         </span>
                         <span className="text-right font-medium text-[var(--color-heading)]">
-                          <ReportCell column={column} value={row[column]} />
+                          <ReportCell
+                            column={column}
+                            value={getReportCellValue(row, column)}
+                          />
                         </span>
                       </div>
                     ))}

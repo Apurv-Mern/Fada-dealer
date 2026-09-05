@@ -8,6 +8,7 @@ import {
   buildReportApiQuery,
   mapReportFiltersMetadata,
   mapReportResult,
+  normalizeReportRows,
   triggerBlobDownload,
 } from "@/features/reports/map-report";
 import type {
@@ -65,7 +66,8 @@ export async function getReport(
 
   if (isMockMode()) {
     await mockDelay();
-    return buildMockReportResult(reportKey);
+    const result = buildMockReportResult(reportKey);
+    return { ...result, rows: normalizeReportRows(result.rows) };
   }
 
   const query = buildQuery(

@@ -68,7 +68,6 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 /** Register body sent to POST /dealer/auth/register (includes password). */
 export const registerSchema = z.object({
   name: z.string().trim().min(1, "Company name is required"),
-  dealerCode: z.string().trim(),
   email: z.string().email("Enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   phone: z

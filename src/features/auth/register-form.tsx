@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Hash, Mail, Phone } from "lucide-react";
+import { Building2, Mail, Phone } from "lucide-react";
 
 import { Button, Input, PasswordInput, toast } from "@/components/ui";
 import { AuthCard } from "@/features/auth/components/auth-card";
@@ -17,7 +17,6 @@ import { routes } from "@/config/navigation";
 
 type RegisterFormState = {
   name: string;
-  dealerCode: string;
   email: string;
   password: string;
   phone: string;
@@ -29,7 +28,6 @@ type OtpFormState = {
 
 const initialRegister: RegisterFormState = {
   name: "",
-  dealerCode: "",
   email: "",
   password: "",
   phone: "",
@@ -176,15 +174,6 @@ export function RegisterForm() {
           onChange={(e) => update("name", e.target.value)}
           error={errors.name}
           required
-        />
-        <Input
-          label="Company code"
-          placeholder="Your company / membership code"
-          helperText="Optional — your company or membership code"
-          leftAddon={<Hash />}
-          value={form.dealerCode}
-          onChange={(e) => update("dealerCode", e.target.value)}
-          error={errors.dealerCode}
         />
         <Input
           label="Email address"

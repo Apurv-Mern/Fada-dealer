@@ -19,6 +19,8 @@ export type Branch = {
   status: BranchStatus;
   /** Optional raw outlet fields for edit forms. */
   code?: string;
+  /** Public outlet code (OT######) from API — read-only in UI. */
+  outletCode?: string;
   manager?: string;
   city?: string;
   state?: string;

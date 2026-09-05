@@ -45,6 +45,64 @@ export const mockReportFilters: ReportFiltersMetadata = {
 };
 
 export function buildMockReportResult(reportKey: string): ReportResult {
+  const baseRows = [
+    {
+      fadaId: "FADA-DF-10001",
+      name: "Priya Sharma",
+      outlet: "Central Showroom",
+      department: "Sales",
+      designation: "Advisor",
+      status: "Active",
+    },
+    {
+      fadaId: "FADA-DF-10002",
+      name: "Rahul Mehta",
+      outlet: "West Service",
+      department: "Service",
+      designation: "Technician",
+      status: "Active",
+    },
+    {
+      fadaId: "FADA-DF-10003",
+      name: "Anita Desai",
+      outlet: "Central Showroom",
+      department: "Sales",
+      designation: "Advisor",
+      status: "Pending",
+    },
+  ];
+
+  const rows =
+    reportKey === "onboarding-verification"
+      ? baseRows.map((row, index) =>
+          index === 0
+            ? {
+                ...row,
+                dealerName: "",
+                dealership: { name: "Alex motor showroom" },
+              }
+            : { ...row, dealerName: "Dots Motor ltd" },
+        )
+      : reportKey === "employee-movement"
+        ? [
+            {
+              ...baseRows[0]!,
+              eventType: "new_joiner",
+              statusDetail: "joining_confirmed",
+            },
+            {
+              ...baseRows[1]!,
+              eventType: "exit",
+              statusDetail: "accept_resignation",
+            },
+            {
+              ...baseRows[2]!,
+              eventType: "status_change",
+              statusDetail: "handover_completed",
+            },
+          ]
+        : baseRows;
+
   return {
     meta: {
       reportKey,
@@ -66,32 +124,7 @@ export function buildMockReportResult(reportKey: string): ReportResult {
       pendingVerification: 6,
       inactiveEmployees: 10,
     },
-    rows: [
-      {
-        fadaId: "FADA-DF-10001",
-        name: "Priya Sharma",
-        outlet: "Central Showroom",
-        department: "Sales",
-        designation: "Advisor",
-        status: "Active",
-      },
-      {
-        fadaId: "FADA-DF-10002",
-        name: "Rahul Mehta",
-        outlet: "West Service",
-        department: "Service",
-        designation: "Technician",
-        status: "Active",
-      },
-      {
-        fadaId: "FADA-DF-10003",
-        name: "Anita Desai",
-        outlet: "Central Showroom",
-        department: "Sales",
-        designation: "Advisor",
-        status: "Pending",
-      },
-    ],
+    rows,
     breakdowns: {
       byDepartment: [
         { label: "Sales", value: 72 },

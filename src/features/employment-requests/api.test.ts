@@ -21,6 +21,7 @@ import {
   mapInvitationSteps,
   mapLeavingDetail,
   mapLeavingSteps,
+  formatPopupDateTime,
   resolveSendInvitationActor,
   unwrapDetailRecord,
   updateInvitationStatus,
@@ -172,6 +173,21 @@ describe("collectCompletedLeavingSteps", () => {
   });
 });
 
+describe("formatPopupDateTime", () => {
+  it("formats date-only values without time", () => {
+    const formatted = formatPopupDateTime("2026-09-05");
+    expect(formatted).toMatch(/2026/);
+    expect(formatted).toMatch(/Sep|Sept/);
+    expect(formatted).not.toMatch(/:\d{2}/);
+  });
+
+  it("formats timestamps with time like Requested", () => {
+    const formatted = formatPopupDateTime("2026-09-05T07:25:05.000Z");
+    expect(formatted).toMatch(/2026/);
+    expect(formatted).toMatch(/:\d{2}/);
+  });
+});
+
 describe("mapLeavingDetail", () => {
   it("includes resignation fields and history", () => {
     const row = mapLeavingDetail({
@@ -187,13 +203,93 @@ describe("mapLeavingDetail", () => {
       ],
     });
     expect(row.resignationDate).toBe("2026-03-12");
-    expect(row.lastWorkingDay).toBe("2026-03-31");
+    expect(row.lastWorkingDay).toMatch(/2026/);
+    expect(row.lastWorkingDay).toMatch(/31/);
     expect(row.reason).toBe("Relocation");
     expect(row.completedSteps).toEqual(
       expect.arrayContaining(["accept_resignation", "handover_completed"]),
     );
     expect(row.history).toHaveLength(2);
     expect(row.canAdvanceWorkflow).toBe(true);
+  });
+
+  it("maps lastWorkingDate alias onto lastWorkingDay", () => {
+    const row = mapLeavingDetail({
+      id: 9,
+      status: "pending",
+      lastWorkingDate: "2026-04-15",
+    });
+    expect(row.lastWorkingDay).toMatch(/2026/);
+    expect(row.lastWorkingDay).toMatch(/15/);
+  });
+
+  it("maps snake_case last_working_date onto lastWorkingDay", () => {
+    const row = mapLeavingDetail({
+      id: 10,
+      status: "pending",
+      last_working_date: "2026-04-20",
+    });
+    expect(row.lastWorkingDay).toMatch(/2026/);
+    expect(row.lastWorkingDay).toMatch(/20/);
+  });
+
+  it("falls back to assignment.endDate when last working fields are empty", () => {
+    const row = mapLeavingDetail({
+      id: 12,
+      status: "pending",
+      lastWorkingDate: null,
+      assignment: { endDate: "2026-05-20" },
+    });
+    expect(row.lastWorkingDay).toMatch(/2026/);
+    expect(row.lastWorkingDay).toMatch(/20/);
+    expect(row.lastWorkingDay).not.toMatch(/:\d{2}/);
+  });
+
+  it("prefers lastWorkingDate over assignment.endDate", () => {
+    const row = mapLeavingDetail({
+      id: 13,
+      status: "pending",
+      lastWorkingDate: "2026-04-15",
+      assignment: { endDate: "2026-05-20" },
+    });
+    expect(row.lastWorkingDay).toMatch(/15/);
+    expect(row.lastWorkingDay).not.toMatch(/20 May|May 20/);
+  });
+
+  it("falls back to assignment.endDate when lastWorkingDate is empty", () => {
+    const row = mapLeavingDetail({
+      id: 14,
+      status: "pending",
+      lastWorkingDate: "",
+      assignment: { endDate: "2026-06-01" },
+    });
+    expect(row.lastWorkingDay).toMatch(/2026/);
+    expect(row.lastWorkingDay).toMatch(/1/);
+  });
+
+  it("formats assignment.endDate for live leaving payload without time", () => {
+    const row = mapLeavingDetail({
+      id: 2,
+      status: "rejected",
+      lastWorkingDate: null,
+      createdAt: "2026-09-05T07:25:05.000Z",
+      assignment: { endDate: "2026-09-05" },
+    });
+    expect(row.lastWorkingDay).toMatch(/Sep|Sept/);
+    expect(row.lastWorkingDay).toMatch(/2026/);
+    expect(row.lastWorkingDay).not.toMatch(/:\d{2}/);
+    expect(row.requestedAtDateTime).toMatch(/:\d{2}/);
+  });
+
+  it("falls back to resignationDate when last working fields are absent", () => {
+    const row = mapLeavingDetail({
+      id: 11,
+      status: "pending",
+      resignationDate: "2026-03-12",
+    });
+    expect(row.resignationDate).toBe("2026-03-12");
+    expect(row.lastWorkingDay).toMatch(/2026/);
+    expect(row.lastWorkingDay).toMatch(/12/);
   });
 
   it("maps live leaving payload with assignment department and designation", () => {

@@ -4,12 +4,15 @@ import { useRef, useState } from "react";
 import { Download, Upload } from "lucide-react";
 
 import { Button, Dialog, toast } from "@/components/ui";
-import { importOutletsCsv } from "@/features/branches/api";
 import {
-  downloadOutletImportTemplate,
-  validateOutletImportCsv,
-} from "@/features/branches/csv-template";
-import { downloadOutletMastersReferenceCsv } from "@/features/branches/masters-reference-csv";
+  importOutletsFile,
+  OutletImportMastersError,
+} from "@/features/branches/api";
+import { downloadOutletImportTemplateCsv } from "@/features/branches/csv-template";
+import { downloadOutletImportTemplateXlsx } from "@/features/branches/excel-template";
+import { validateOutletImportFile } from "@/features/branches/import-file";
+import { mastersHaveDropdownData } from "@/features/branches/import-masters";
+import { isOutletImportFile } from "@/features/branches/import-row";
 import type { OutletImportResult } from "@/features/branches/types";
 import { toAuthErrorMessage } from "@/features/auth/client-auth";
 import { cn } from "@/lib/utils/cn";
@@ -28,7 +31,7 @@ export function BranchesImportDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Import Outlets"
-      description="Upload a CSV to onboard multiple outlets at once."
+      description="Upload a CSV or Excel file to onboard multiple outlets at once."
       className="max-w-xl"
     >
       {open ? (
@@ -41,15 +44,10 @@ export function BranchesImportDialog({
   );
 }
 
-function isCsvFile(file: File): boolean {
-  const lower = file.name.toLowerCase();
-  return lower.endsWith(".csv") || file.type === "text/csv";
-}
-
-function pickCsvFile(list: FileList | null): File | null {
+function pickImportFile(list: FileList | null): File | null {
   if (!list?.length) return null;
   for (const file of Array.from(list)) {
-    if (isCsvFile(file)) return file;
+    if (isOutletImportFile(file)) return file;
   }
   return null;
 }
@@ -63,7 +61,8 @@ function BranchesImportForm({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [referenceLoading, setReferenceLoading] = useState(false);
+  const [csvTemplateLoading, setCsvTemplateLoading] = useState(false);
+  const [excelTemplateLoading, setExcelTemplateLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState<OutletImportResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -79,43 +78,59 @@ function BranchesImportForm({
       applyFile(null);
       return;
     }
-    const csv = pickCsvFile(list);
-    if (!csv) {
-      toast.error("Only CSV files are supported");
+    const importFile = pickImportFile(list);
+    if (!importFile) {
+      toast.error("Only CSV or Excel (.xlsx) files are supported");
       return;
     }
-    applyFile(csv);
+    applyFile(importFile);
   }
 
   function openFilePicker() {
     inputRef.current?.click();
   }
 
-  async function handleDownloadReference() {
-    setReferenceLoading(true);
+  async function handleDownloadCsvTemplate() {
+    setCsvTemplateLoading(true);
     try {
-      const count = await downloadOutletMastersReferenceCsv();
-      if (count === 0) {
-        toast.message("No master data found — downloaded empty reference file");
+      await downloadOutletImportTemplateCsv();
+      toast.success("CSV template downloaded");
+    } catch (err) {
+      toast.error(
+        toAuthErrorMessage(err, "Couldn't download CSV template"),
+      );
+    } finally {
+      setCsvTemplateLoading(false);
+    }
+  }
+
+  async function handleDownloadExcelTemplate() {
+    setExcelTemplateLoading(true);
+    try {
+      const masters = await downloadOutletImportTemplateXlsx();
+      if (!mastersHaveDropdownData(masters)) {
+        toast.message(
+          "Excel template downloaded — no brands or functions returned for dropdowns",
+        );
       } else {
-        toast.success("Reference downloaded");
+        toast.success("Excel template downloaded");
       }
     } catch (err) {
       toast.error(
-        toAuthErrorMessage(err, "Couldn't download reference"),
+        toAuthErrorMessage(err, "Couldn't download Excel template"),
       );
     } finally {
-      setReferenceLoading(false);
+      setExcelTemplateLoading(false);
     }
   }
 
   async function handleImport() {
     if (!file) {
-      toast.error("Choose a CSV file to import");
+      toast.error("Choose a CSV or Excel file to import");
       return;
     }
 
-    const validationError = await validateOutletImportCsv(file);
+    const validationError = await validateOutletImportFile(file);
     if (validationError) {
       toast.error(validationError);
       return;
@@ -123,7 +138,7 @@ function BranchesImportForm({
 
     setIsLoading(true);
     try {
-      const importResult = await importOutletsCsv(file);
+      const importResult = await importOutletsFile(file);
       setResult(importResult);
 
       if (importResult.failed > 0 && importResult.created > 0) {
@@ -132,7 +147,8 @@ function BranchesImportForm({
         );
       } else if (importResult.failed > 0) {
         toast.error(
-          importResult.created === 0 && importResult.errors.some((e) => e.row > 1)
+          importResult.created === 0 &&
+            importResult.errors.some((e) => e.row > 1)
             ? `Fix ${importResult.failed} row error(s) before importing`
             : `Import skipped ${importResult.failed} of ${importResult.total} row(s)`,
         );
@@ -146,7 +162,11 @@ function BranchesImportForm({
         onImported?.();
       }
     } catch (err) {
-      toast.error(toAuthErrorMessage(err, "Failed to import outlets"));
+      if (err instanceof OutletImportMastersError) {
+        toast.error(err.message);
+      } else {
+        toast.error(toAuthErrorMessage(err, "Failed to import outlets"));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -159,27 +179,28 @@ function BranchesImportForm({
           type="button"
           variant="secondary"
           size="sm"
-          onClick={() => downloadOutletImportTemplate()}
+          isLoading={csvTemplateLoading}
+          onClick={() => void handleDownloadCsvTemplate()}
         >
           <Download className="size-3.5" aria-hidden />
-          Download template
+          Download CSV template
         </Button>
         <Button
           type="button"
           variant="secondary"
           size="sm"
-          isLoading={referenceLoading}
-          onClick={() => void handleDownloadReference()}
+          isLoading={excelTemplateLoading}
+          onClick={() => void handleDownloadExcelTemplate()}
         >
           <Download className="size-3.5" aria-hidden />
-          Download reference
+          Download Excel template
         </Button>
       </div>
 
       <input
         ref={inputRef}
         type="file"
-        accept=".csv,text/csv"
+        accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         className="sr-only"
         onChange={(e) => {
           onFileList(e.target.files);
@@ -192,8 +213,8 @@ function BranchesImportForm({
         tabIndex={0}
         aria-label={
           file
-            ? `Selected file ${file.name}. Click or press Enter to choose another CSV.`
-            : "Drop CSV here or click to browse"
+            ? `Selected file ${file.name}. Click or press Enter to choose another file.`
+            : "Drop CSV or Excel here or click to browse"
         }
         onClick={openFilePicker}
         onKeyDown={(e) => {
@@ -235,7 +256,7 @@ function BranchesImportForm({
       >
         <Upload className="size-6 text-[var(--color-primary)]" aria-hidden />
         <span className="text-sm font-medium text-[var(--color-heading)]">
-          {file ? file.name : "Drop CSV here or click to browse"}
+          {file ? file.name : "Drop CSV or Excel here or click to browse"}
         </span>
         {file ? (
           <span className="text-xs text-[var(--color-text-muted)]">
@@ -251,9 +272,10 @@ function BranchesImportForm({
         </p>
         <p>
           Required per row: name, brandName, outletFunctions (pipe-separated,
-          e.g. Sales|Service). Use Download reference for brand and function
-          names.
+          e.g. Sales|Service). CSV template includes valid names as comments;
+          Excel template has dropdowns for brand and function.
         </p>
+        <p>Upload either .csv or .xlsx after filling the template.</p>
       </div>
 
       {result ? (

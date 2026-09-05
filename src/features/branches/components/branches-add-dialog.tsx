@@ -36,7 +36,6 @@ import { cn } from "@/lib/utils/cn";
 
 type FormState = {
   name: string;
-  code: string;
   manager: string;
   city: string;
   state: string;
@@ -49,7 +48,6 @@ type FormState = {
 
 const emptyForm: FormState = {
   name: "",
-  code: "",
   manager: "",
   city: "",
   state: "",
@@ -73,7 +71,6 @@ function formFromBranch(branch?: Branch | null): FormState {
   if (!branch) return emptyForm;
   return {
     name: branch.name,
-    code: branch.code ?? "",
     manager: branch.manager ?? "",
     city: branch.city ?? "",
     state: branch.state ?? "",
@@ -451,6 +448,9 @@ function BranchForm({
   onSaved?: () => void;
 }) {
   const [form, setForm] = useState<FormState>(() => formFromBranch(branch));
+  const [hydratedOutletCode, setHydratedOutletCode] = useState(
+    () => branch?.outletCode ?? "",
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [mastersLoading, setMastersLoading] = useState(true);
   const [hydrateLoading, setHydrateLoading] = useState(Boolean(branch));
@@ -489,20 +489,24 @@ function BranchForm({
 
   useEffect(() => {
     if (!branch?.id) {
+      setHydratedOutletCode("");
       setHydrateLoading(false);
       return;
     }
+    setHydratedOutletCode(branch.outletCode ?? "");
     let cancelled = false;
     setHydrateLoading(true);
     getOutletById(branch.id)
       .then((full) => {
         if (cancelled) return;
         setForm(formFromBranch(full));
+        setHydratedOutletCode(full.outletCode ?? "");
       })
       .catch(() => {
         if (cancelled) return;
         // List row fields are enough as fallback
         setForm(formFromBranch(branch));
+        setHydratedOutletCode(branch.outletCode ?? "");
       })
       .finally(() => {
         if (!cancelled) setHydrateLoading(false);
@@ -571,7 +575,6 @@ function BranchForm({
     const payload: OutletInput = {
       name: form.name.trim(),
       brandId: brandIdNum,
-      code: form.code.trim() || undefined,
       manager: form.manager.trim() || undefined,
       city: form.city.trim() || undefined,
       state: form.state.trim() || undefined,
@@ -658,12 +661,15 @@ function BranchForm({
           placeholder="e.g. Andheri West Showroom"
           required
         />
-        <Input
-          label="Code"
-          value={form.code}
-          onChange={(e) => update("code", e.target.value)}
-          placeholder="Optional short code"
-        />
+        {isEdit ? (
+          <Input
+            label="Outlet Code"
+            value={hydratedOutletCode || "—"}
+            readOnly
+            disabled
+            helperText="Assigned automatically by the system"
+          />
+        ) : null}
         <Input
           label="Company"
           value={companyName}

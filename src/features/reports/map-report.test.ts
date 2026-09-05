@@ -5,14 +5,18 @@ import {
   deriveRowColumns,
   extractBreakdownCharts,
   formatCellValue,
+  formatColumnLabel,
   formatReportDate,
   formatScalarDisplay,
+  getReportCellValue,
   getVisibleReportFilters,
   mapReportFiltersMetadata,
   mapReportResult,
   mergeBreakdownSources,
+  normalizeReportRow,
   partitionReportSummary,
   reportExportParams,
+  resolveCompanyName,
   sanitizeReportQueryForKey,
 } from "@/features/reports/map-report";
 import { emptyReportUrlQuery } from "@/features/reports/types";
@@ -269,6 +273,82 @@ describe("mapReportResult", () => {
     expect(result.page).toBe(3);
     expect(result.pageSize).toBe(20);
   });
+
+  it("normalizes nested dealership name into dealerName rows", () => {
+    const result = mapReportResult(
+      {
+        success: true,
+        data: {
+          rows: [
+            {
+              name: "Farhan Kumar",
+              dealerName: "",
+              dealership: { name: "Alex motor showroom" },
+            },
+          ],
+        },
+      },
+      { page: 1, pageSize: 10 },
+    );
+
+    expect(result.rows[0]?.dealerName).toBe("Alex motor showroom");
+  });
+});
+
+describe("formatColumnLabel", () => {
+  it("maps dealerName to Company Name", () => {
+    expect(formatColumnLabel("dealerName")).toBe("Company Name");
+  });
+
+  it("falls back to formatSummaryLabel for other keys", () => {
+    expect(formatColumnLabel("fadaId")).toBe("Fada Id");
+  });
+});
+
+describe("resolveCompanyName", () => {
+  it("reads nested dealership.name when dealerName is empty", () => {
+    expect(
+      resolveCompanyName({
+        dealerName: "",
+        dealership: { name: "Alex motor showroom" },
+      }),
+    ).toBe("Alex motor showroom");
+  });
+
+  it("prefers explicit dealerName over nested dealership", () => {
+    expect(
+      resolveCompanyName({
+        dealerName: "Primary Co",
+        dealership: { name: "Nested Co" },
+      }),
+    ).toBe("Primary Co");
+  });
+});
+
+describe("normalizeReportRow", () => {
+  it("injects dealerName from nested dealership", () => {
+    expect(
+      normalizeReportRow({
+        name: "Farhan Kumar",
+        dealership: { name: "Alex motor showroom" },
+      }),
+    ).toEqual({
+      name: "Farhan Kumar",
+      dealership: { name: "Alex motor showroom" },
+      dealerName: "Alex motor showroom",
+    });
+  });
+});
+
+describe("getReportCellValue", () => {
+  it("returns resolved company name for dealerName column", () => {
+    expect(
+      getReportCellValue(
+        { dealerName: "", dealership: { name: "Alex motor showroom" } },
+        "dealerName",
+      ),
+    ).toBe("Alex motor showroom");
+  });
 });
 
 describe("deriveRowColumns", () => {
@@ -337,6 +417,25 @@ describe("formatCellValue", () => {
     expect(
       formatCellValue([{ name: "Sales" }, { name: "Service" }], "departments"),
     ).toBe("Sales, Service");
+  });
+
+  it("formats eventType slug values for employee movement", () => {
+    expect(formatCellValue("new_joiner", "eventType")).toBe("New joiner");
+    expect(formatCellValue("exit", "eventType")).toBe("Exit");
+    expect(formatCellValue("status_change", "eventType")).toBe("Status change");
+  });
+
+  it("formats statusDetail slug values as readable labels", () => {
+    expect(formatCellValue("accept_resignation", "statusDetail")).toBe(
+      "Accept resignation",
+    );
+    expect(formatCellValue("Handover completed", "statusDetail")).toBe(
+      "Handover completed",
+    );
+  });
+
+  it("leaves non-keyword columns unchanged", () => {
+    expect(formatCellValue("new_joiner", "name")).toBe("new_joiner");
   });
 });
 

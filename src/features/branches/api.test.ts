@@ -2,10 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildOutletImportResult,
-  importOutletsCsv,
+  importOutletsFile,
+  mapOutletToBranch,
 } from "@/features/branches/api";
-import { buildOutletImportTemplateCsv } from "@/features/branches/csv-template";
+import { buildOutletImportTemplateCsv, OUTLET_CSV_HEADERS } from "@/features/branches/csv-template";
+import { buildOutletImportTemplateXlsx } from "@/features/branches/excel-template";
 import { apiFetch, isMockMode } from "@/lib/api";
+import {
+  mockBrands,
+  mockOutletFunctions,
+} from "@/features/masters/mocks/data";
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -16,11 +22,45 @@ vi.mock("@/lib/api", async () => {
   };
 });
 
+vi.mock("@/features/masters/api", () => ({
+  getBrands: vi.fn(async () => mockBrands),
+  getOutletFunctions: vi.fn(async () => mockOutletFunctions),
+}));
+
+const testMasters = {
+  brands: mockBrands,
+  functions: mockOutletFunctions,
+};
+
+describe("mapOutletToBranch", () => {
+  it("maps outletCode from API payload", () => {
+    const branch = mapOutletToBranch({
+      id: 12,
+      name: "Sanganer",
+      outletCode: "OT583721",
+      isActive: true,
+    });
+
+    expect(branch.outletCode).toBe("OT583721");
+  });
+
+  it("falls back to publicCode when outletCode is absent", () => {
+    const branch = mapOutletToBranch({
+      id: 13,
+      name: "Jaipur",
+      publicCode: "OT583722",
+      isActive: true,
+    });
+
+    expect(branch.outletCode).toBe("OT583722");
+  });
+});
+
 describe("buildOutletImportResult", () => {
   const items = [
     {
       name: "Sanganer",
-      brandName: "Maruti",
+      brandName: "Honda",
       outletFunctions: ["Sales", "Service"],
     },
     {
@@ -67,37 +107,52 @@ describe("buildOutletImportResult", () => {
   });
 });
 
-describe("importOutletsCsv", () => {
+describe("importOutletsFile", () => {
   afterEach(() => {
     vi.mocked(isMockMode).mockReturnValue(true);
     vi.mocked(apiFetch).mockReset();
   });
 
-  function importFile(content: string): Promise<import("@/features/branches/types").OutletImportResult> {
+  function importCsv(content: string) {
     const file = new File([content], "import.csv", { type: "text/csv" });
-    return importOutletsCsv(file);
+    return importOutletsFile(file);
   }
 
-  it("posts JSON array in live mode", async () => {
+  async function importXlsx(buffer: ArrayBuffer) {
+    const file = new File([buffer], "import.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    return importOutletsFile(file);
+  }
+
+  it("posts JSON array in live mode for CSV", async () => {
     vi.mocked(isMockMode).mockReturnValue(false);
     vi.mocked(apiFetch).mockResolvedValue({ success: true, data: [] });
 
-    await importFile(buildOutletImportTemplateCsv());
+    await importCsv(buildOutletImportTemplateCsv(testMasters));
 
     expect(apiFetch).toHaveBeenCalledWith("/dealers/outlets/import", {
       method: "POST",
       body: [
-        {
+        expect.objectContaining({
           name: "Sanganer",
-          brandName: "Maruti",
-          outletFunctions: ["Sales", "Service"],
-          manager: "Shambhu",
-          pincode: "303908",
-          city: "Jaipur",
-          state: "Rajasthan",
-          address: "jaipur, kotkhawada",
-        },
+          brandName: "Honda",
+          outletFunctions: ["Sales", "Workshop"],
+        }),
       ],
+    });
+  });
+
+  it("posts JSON array in live mode for XLSX", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+    vi.mocked(apiFetch).mockResolvedValue({ success: true, data: [] });
+
+    const buffer = await buildOutletImportTemplateXlsx(testMasters);
+    await importXlsx(buffer);
+
+    expect(apiFetch).toHaveBeenCalledWith("/dealers/outlets/import", {
+      method: "POST",
+      body: [expect.objectContaining({ brandName: "Honda" })],
     });
   });
 
@@ -108,14 +163,14 @@ describe("importOutletsCsv", () => {
       data: [
         {
           name: "Sanganer",
-          brandName: "Maruti",
-          outletFunctions: ["Sales", "Service"],
+          brandName: "Honda",
+          outletFunctions: ["Sales", "Workshop"],
           reason: "Outlet already exists",
         },
       ],
     });
 
-    const result = await importFile(buildOutletImportTemplateCsv());
+    const result = await importCsv(buildOutletImportTemplateCsv(testMasters));
 
     expect(result).toEqual({
       total: 1,
@@ -126,8 +181,8 @@ describe("importOutletsCsv", () => {
   });
 
   it("skips rows in mock mode when name contains skip", async () => {
-    const csv = `${buildOutletImportTemplateCsv().trim()}\nSkip Test,Maruti,Sales,,,,,`;
-    const result = await importFile(csv);
+    const csv = `${buildOutletImportTemplateCsv(testMasters).split("\n").slice(0, 2).join("\n")}\nSkip Test,Honda,Sales,,,,,`;
+    const result = await importCsv(csv);
 
     expect(result.total).toBe(2);
     expect(result.created).toBe(1);
@@ -138,10 +193,21 @@ describe("importOutletsCsv", () => {
   it("returns parse errors without POST", async () => {
     vi.mocked(isMockMode).mockReturnValue(false);
 
-    const result = await importFile("name,brandName\nOnly,Headers");
+    const result = await importCsv("name,brandName\nOnly,Headers");
 
     expect(apiFetch).not.toHaveBeenCalled();
     expect(result.created).toBe(0);
     expect(result.failed).toBeGreaterThan(0);
+  });
+
+  it("blocks import when brand is unknown", async () => {
+    vi.mocked(isMockMode).mockReturnValue(false);
+
+    const csv = `${OUTLET_CSV_HEADERS.join(",")}\nBad Brand Outlet,NotARealBrand,Sales,,,,,`;
+    const result = await importCsv(csv);
+
+    expect(apiFetch).not.toHaveBeenCalled();
+    expect(result.failed).toBe(1);
+    expect(result.errors[0]?.message).toMatch(/Brand 'NotARealBrand' not found/);
   });
 });

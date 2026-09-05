@@ -156,7 +156,6 @@ export async function dealerVerifyLoginOtp(input: {
 
 export async function dealerRegister(input: {
   name: string;
-  dealerCode?: string;
   email: string;
   password: string;
   phone: string;
@@ -165,14 +164,9 @@ export async function dealerRegister(input: {
     return "OTP sent (mock)";
   }
 
-  const { dealerCode, ...rest } = input;
-  const bodyPayload = dealerCode?.trim()
-    ? { ...rest, dealerCode: dealerCode.trim() }
-    : rest;
-
   const body = await apiFetch<{ message?: string }>("/dealer/auth/register", {
     method: "POST",
-    body: bodyPayload,
+    body: input,
     skipAuth: true,
   });
   return body.message ?? "OTP sent";

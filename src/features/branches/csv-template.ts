@@ -1,41 +1,52 @@
+import {
+  buildMasterNameLookup,
+  buildOutletImportExampleValues,
+  fetchOutletImportMasters,
+  resolveMasterName,
+  type OutletImportMasters,
+} from "@/features/branches/import-masters";
+import {
+  escapeCsvCell,
+  triggerCsvDownload,
+} from "@/features/branches/import-file-utils";
+import {
+  detectWrongImportFileHeaders,
+  formatMissingImportHeadersError,
+  isBlankImportRow,
+  isImportCommentLine,
+  isOutletCsvFile,
+  missingRequiredImportHeaders,
+  normalizeImportHeader,
+  OUTLET_CSV_HEADERS,
+  OUTLET_IMPORT_MAX_FILE_BYTES,
+  outletImportFileSizeError,
+  outletImportFileTypeError,
+  outletRowToImportItem,
+  readImportHeaderIndex,
+  validateOutletImportRow,
+  type OutletImportRowValues,
+} from "@/features/branches/import-row";
 import type {
   OutletImportItem,
   OutletImportRowError,
 } from "@/features/branches/types";
 
-/** CSV headers matching Swagger DealerOutletImportItem (+ optional fields). */
-export const OUTLET_CSV_HEADERS = [
-  "name",
-  "brandName",
-  "outletFunctions",
-  "manager",
-  "pincode",
-  "city",
-  "state",
-  "address",
-] as const;
+export {
+  OUTLET_CSV_HEADERS,
+  OUTLET_IMPORT_WRONG_FILE_MESSAGE,
+  OUTLET_REQUIRED_HEADERS,
+} from "@/features/branches/import-row";
 
-const REQUIRED_HEADERS = ["name", "brandName", "outletFunctions"] as const;
+export { escapeCsvCell } from "@/features/branches/import-file-utils";
 
-const PINCODE_PATTERN = /^\d{6}$/;
-
-const EXAMPLE_ROW = [
-  "Sanganer",
-  "Maruti",
-  "Sales|Service",
-  "Shambhu",
-  "303908",
-  "Jaipur",
-  "Rajasthan",
-  "jaipur, kotkhawada",
-] as const;
-
-function escapeCsvCell(value: string): string {
-  if (/[",\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
+const GENERIC_EXAMPLE_FIELDS = {
+  name: "Sanganer",
+  manager: "Shambhu",
+  pincode: "303908",
+  city: "Jaipur",
+  state: "Rajasthan",
+  address: "jaipur, kotkhawada",
+} as const;
 
 /** Parse one CSV line into cells (handles quoted fields). */
 export function parseCsvLine(line: string): string[] {
@@ -73,97 +84,170 @@ export function parseCsvLine(line: string): string[] {
   return cells;
 }
 
-function parseOutletFunctions(raw: string): string[] {
-  return raw
-    .split("|")
-    .map((part) => part.trim())
-    .filter(Boolean);
+function buildReferenceCommentLines(masters: OutletImportMasters): string[] {
+  const lines: string[] = [
+    "",
+    "# VALID BRANDS (exact spelling — do not import lines starting with #)",
+  ];
+  for (const brand of masters.brands) {
+    lines.push(`# ${brand.name}`);
+  }
+  lines.push("# VALID OUTLET FUNCTIONS");
+  for (const fn of masters.functions) {
+    lines.push(`# ${fn.name}`);
+  }
+  return lines;
 }
 
-/** Build UTF-8 CSV text for the outlet import template. */
-export function buildOutletImportTemplateCsv(): string {
+/** Build UTF-8 CSV text for the outlet import template using live masters. */
+export function buildOutletImportTemplateCsv(
+  masters: OutletImportMasters,
+): string {
+  const { brandName, outletFunctions } =
+    buildOutletImportExampleValues(masters);
   const header = OUTLET_CSV_HEADERS.join(",");
-  const row = EXAMPLE_ROW.map(escapeCsvCell).join(",");
-  return `${header}\n${row}\n`;
+  const exampleRow = [
+    GENERIC_EXAMPLE_FIELDS.name,
+    brandName,
+    outletFunctions,
+    GENERIC_EXAMPLE_FIELDS.manager,
+    GENERIC_EXAMPLE_FIELDS.pincode,
+    GENERIC_EXAMPLE_FIELDS.city,
+    GENERIC_EXAMPLE_FIELDS.state,
+    GENERIC_EXAMPLE_FIELDS.address,
+  ]
+    .map(escapeCsvCell)
+    .join(",");
+
+  const commentLines = buildReferenceCommentLines(masters);
+  return `${header}\n${exampleRow}\n${commentLines.join("\n")}\n`;
 }
 
-/** Trigger a browser download of `outlet-import-template.csv`. */
-export function downloadOutletImportTemplate(): void {
-  const csv = buildOutletImportTemplateCsv();
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "outlet-import-template.csv";
-  anchor.rel = "noopener";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+/** Fetch masters and download `outlet-import-template.csv`. */
+export async function downloadOutletImportTemplateCsv(): Promise<OutletImportMasters> {
+  const masters = await fetchOutletImportMasters();
+  const csv = buildOutletImportTemplateCsv(masters);
+  triggerCsvDownload("outlet-import-template.csv", csv);
+  return masters;
 }
 
-function normalizeHeader(value: string): string {
-  return value.trim().replace(/^"|"$/g, "").toLowerCase();
+function rowValuesFromCells(
+  cells: string[],
+  headerIndexes: Record<(typeof OUTLET_CSV_HEADERS)[number], number>,
+): OutletImportRowValues {
+  return Object.fromEntries(
+    OUTLET_CSV_HEADERS.map((key) => [
+      key,
+      String(cells[headerIndexes[key]] ?? "").trim(),
+    ]),
+  ) as OutletImportRowValues;
 }
 
-function readHeaderIndex(headers: string[], key: string): number {
-  const normalized = key.toLowerCase();
-  return headers.findIndex((h) => normalizeHeader(h) === normalized);
-}
+function parseCsvText(text: string): {
+  items: OutletImportItem[];
+  errors: OutletImportRowError[];
+} {
+  const lines = text.split(/\r?\n/);
+  const headerLineIndex = lines.findIndex(
+    (line) => line.trim() && !isImportCommentLine(line),
+  );
+  if (headerLineIndex < 0) {
+    return { items: [], errors: [{ row: 1, message: "CSV appears empty" }] };
+  }
 
-function validateImportRow(
-  rowNumber: number,
-  values: Record<(typeof OUTLET_CSV_HEADERS)[number], string>,
-): OutletImportRowError | null {
-  const missing = REQUIRED_HEADERS.filter((key) => !values[key].trim());
+  const headerCells = parseCsvLine(lines[headerLineIndex]!);
+  const normalizedHeaders = headerCells.map(normalizeImportHeader);
+
+  const wrongFile = detectWrongImportFileHeaders(normalizedHeaders);
+  if (wrongFile) {
+    return { items: [], errors: [{ row: 1, message: wrongFile }] };
+  }
+
+  const missing = missingRequiredImportHeaders(normalizedHeaders);
   if (missing.length > 0) {
     return {
-      row: rowNumber,
-      message: `Missing required field(s): ${missing.join(", ")}`,
+      items: [],
+      errors: [
+        {
+          row: headerLineIndex + 1,
+          message: formatMissingImportHeadersError(missing),
+        },
+      ],
     };
   }
 
-  const functions = parseOutletFunctions(values.outletFunctions);
-  if (functions.length === 0) {
-    return {
-      row: rowNumber,
-      message: "outletFunctions must include at least one name (use Sales|Service)",
-    };
+  const headerIndexes = Object.fromEntries(
+    OUTLET_CSV_HEADERS.map((key) => [
+      key,
+      readImportHeaderIndex(headerCells, key),
+    ]),
+  ) as Record<(typeof OUTLET_CSV_HEADERS)[number], number>;
+
+  const items: OutletImportItem[] = [];
+  const errors: OutletImportRowError[] = [];
+
+  for (let i = headerLineIndex + 1; i < lines.length; i += 1) {
+    const line = lines[i]!;
+    if (!line.trim() || isImportCommentLine(line)) continue;
+
+    const rowNumber = i + 1;
+    const cells = parseCsvLine(line);
+    const values = rowValuesFromCells(cells, headerIndexes);
+
+    if (isBlankImportRow(values)) continue;
+
+    const rowError = validateOutletImportRow(rowNumber, values);
+    if (rowError) {
+      errors.push(rowError);
+      continue;
+    }
+
+    items.push(outletRowToImportItem(values));
   }
 
-  const pincode = values.pincode.trim();
-  if (pincode && !PINCODE_PATTERN.test(pincode)) {
-    return {
-      row: rowNumber,
-      message: "pincode must be 6 digits",
-    };
+  if (items.length === 0 && errors.length === 0) {
+    errors.push({ row: 1, message: "CSV has no data rows" });
   }
 
-  return null;
+  return { items, errors };
 }
 
-function rowToImportItem(
-  values: Record<(typeof OUTLET_CSV_HEADERS)[number], string>,
-): OutletImportItem {
-  const item: OutletImportItem = {
-    name: values.name.trim(),
-    brandName: values.brandName.trim(),
-    outletFunctions: parseOutletFunctions(values.outletFunctions),
-  };
+/**
+ * Validate rows against live masters before POST.
+ * Returns row errors; empty array means all rows match current API names.
+ */
+export function validateOutletImportItemsAgainstMasters(
+  items: OutletImportItem[],
+  masters: OutletImportMasters,
+  rowOffset = 2,
+): OutletImportRowError[] {
+  const brandLookup = buildMasterNameLookup(masters.brands);
+  const functionLookup = buildMasterNameLookup(masters.functions);
+  const errors: OutletImportRowError[] = [];
 
-  const manager = values.manager.trim();
-  const pincode = values.pincode.trim();
-  const city = values.city.trim();
-  const state = values.state.trim();
-  const address = values.address.trim();
+  items.forEach((item, index) => {
+    const row = rowOffset + index;
+    const brand = resolveMasterName(item.brandName, brandLookup);
+    if (!brand) {
+      errors.push({
+        row,
+        message: `Brand '${item.brandName}' not found. Download a fresh template for valid names.`,
+      });
+      return;
+    }
 
-  if (manager) item.manager = manager;
-  if (pincode) item.pincode = pincode;
-  if (city) item.city = city;
-  if (state) item.state = state;
-  if (address) item.address = address;
+    for (const fn of item.outletFunctions) {
+      const resolved = resolveMasterName(fn, functionLookup);
+      if (!resolved) {
+        errors.push({
+          row,
+          message: `Outlet function '${fn}' not found. Download a fresh template for valid names.`,
+        });
+      }
+    }
+  });
 
-  return item;
+  return errors;
 }
 
 /**
@@ -172,25 +256,26 @@ function rowToImportItem(
 export async function validateOutletImportCsv(
   file: File,
 ): Promise<string | null> {
-  if (!file.size) return "Choose a non-empty CSV file";
-  const lower = file.name.toLowerCase();
-  if (!lower.endsWith(".csv") && file.type !== "text/csv") {
-    return "Only CSV files are supported";
-  }
-  if (file.size > 2 * 1024 * 1024) {
-    return "CSV must be 2MB or smaller";
+  if (!file.size) return "Choose a non-empty import file";
+  if (!isOutletCsvFile(file)) return outletImportFileTypeError();
+  if (file.size > OUTLET_IMPORT_MAX_FILE_BYTES) {
+    return outletImportFileSizeError();
   }
 
   const text = await file.slice(0, 4096).text();
-  const firstLine = text.split(/\r?\n/).find((line) => line.trim()) ?? "";
+  const firstLine =
+    text
+      .split(/\r?\n/)
+      .find((line) => line.trim() && !isImportCommentLine(line)) ?? "";
   if (!firstLine.trim()) return "CSV appears empty";
 
-  const headers = parseCsvLine(firstLine).map(normalizeHeader);
-  const missing = REQUIRED_HEADERS.filter(
-    (key) => !headers.includes(key.toLowerCase()),
-  );
+  const headers = parseCsvLine(firstLine).map(normalizeImportHeader);
+  const wrongFile = detectWrongImportFileHeaders(headers);
+  if (wrongFile) return wrongFile;
+
+  const missing = missingRequiredImportHeaders(headers);
   if (missing.length > 0) {
-    return `CSV header must include: ${missing.join(", ")}`;
+    return formatMissingImportHeadersError(missing);
   }
   return null;
 }
@@ -208,60 +293,13 @@ export async function parseOutletImportCsv(
   }
 
   const text = await file.text();
-  const lines = text.split(/\r?\n/);
-  const headerLineIndex = lines.findIndex((line) => line.trim());
-  if (headerLineIndex < 0) {
-    return { items: [], errors: [{ row: 1, message: "CSV appears empty" }] };
-  }
+  return parseCsvText(text);
+}
 
-  const headerCells = parseCsvLine(lines[headerLineIndex]!);
-  const headerIndexes = Object.fromEntries(
-    OUTLET_CSV_HEADERS.map((key) => [key, readHeaderIndex(headerCells, key)]),
-  ) as Record<(typeof OUTLET_CSV_HEADERS)[number], number>;
-
-  const missingHeaders = OUTLET_CSV_HEADERS.filter(
-    (key) => headerIndexes[key] < 0,
-  );
-  if (missingHeaders.length > 0) {
-    return {
-      items: [],
-      errors: [
-        {
-          row: headerLineIndex + 1,
-          message: `CSV header must include: ${missingHeaders.join(", ")}`,
-        },
-      ],
-    };
-  }
-
-  const items: OutletImportItem[] = [];
-  const errors: OutletImportRowError[] = [];
-
-  for (let i = headerLineIndex + 1; i < lines.length; i += 1) {
-    const line = lines[i]!;
-    if (!line.trim()) continue;
-
-    const rowNumber = i + 1;
-    const cells = parseCsvLine(line);
-    const values = Object.fromEntries(
-      OUTLET_CSV_HEADERS.map((key) => [
-        key,
-        (cells[headerIndexes[key]] ?? "").trim(),
-      ]),
-    ) as Record<(typeof OUTLET_CSV_HEADERS)[number], string>;
-
-    const rowError = validateImportRow(rowNumber, values);
-    if (rowError) {
-      errors.push(rowError);
-      continue;
-    }
-
-    items.push(rowToImportItem(values));
-  }
-
-  if (items.length === 0 && errors.length === 0) {
-    errors.push({ row: 1, message: "CSV has no data rows" });
-  }
-
-  return { items, errors };
+/** Parse CSV string (for tests). */
+export function parseOutletImportCsvText(text: string): {
+  items: OutletImportItem[];
+  errors: OutletImportRowError[];
+} {
+  return parseCsvText(text);
 }

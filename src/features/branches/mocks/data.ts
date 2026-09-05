@@ -37,6 +37,7 @@ export const branches: Branch[] = [
     functionIds: [1, 4],
     isActive: true,
     groupDealerId: "1",
+    outletCode: "OT583721",
   },
   {
     id: "2",
@@ -55,6 +56,7 @@ export const branches: Branch[] = [
     functionIds: [3],
     isActive: true,
     groupDealerId: "1",
+    outletCode: "OT583722",
   },
   {
     id: "3",
@@ -73,6 +75,7 @@ export const branches: Branch[] = [
     functionIds: [1],
     isActive: true,
     groupDealerId: "2",
+    outletCode: "OT583723",
   },
   {
     id: "4",
@@ -91,6 +94,7 @@ export const branches: Branch[] = [
     functionIds: [1, 3],
     isActive: true,
     groupDealerId: "2",
+    outletCode: "OT583724",
   },
 ];
 

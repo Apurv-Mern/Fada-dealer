@@ -60,6 +60,40 @@ function formatDate(value: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+const POPUP_DATE_OPTS: Intl.DateTimeFormatOptions = {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+};
+
+function parseDateInput(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [y, m, d] = trimmed.split("-").map(Number);
+    return new Date(y!, m! - 1, d);
+  }
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function hasExplicitTime(value: string): boolean {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return false;
+  return /T\d{2}:\d{2}/.test(trimmed) || /\d{1,2}:\d{2}/.test(trimmed);
+}
+
+/** Popup display — date+time when timestamp present; date-only otherwise. */
+export function formatPopupDateTime(value: string): string {
+  if (!value) return "—";
+  const d = parseDateInput(value);
+  if (!d) return value;
+  if (hasExplicitTime(value)) {
+    return formatDateTime(value);
+  }
+  return d.toLocaleDateString(undefined, POPUP_DATE_OPTS);
+}
+
 /** Local date + time for popup detail rows (e.g. "19 Aug 2026, 2:45 PM"). */
 export function formatDateTime(value: string): string {
   if (!value) return "—";
@@ -414,11 +448,15 @@ function mapLeavingRecord(raw: unknown): EmploymentRequest {
       readString(record, "resignationDate") ||
         readString(record, "resignDate"),
     ) || undefined;
-  const lastWorkingDay =
-    formatDate(
-      readString(record, "lastWorkingDay") ||
-        readString(record, "lastWorkingDate"),
-    ) || undefined;
+  const lastWorkingRaw =
+    readString(record, "lastWorkingDay") ||
+    readString(record, "lastWorkingDate") ||
+    readString(record, "last_working_day") ||
+    readString(record, "last_working_date") ||
+    readString(assignment, "endDate") ||
+    readString(record, "resignationDate") ||
+    readString(record, "resignDate");
+  const lastWorkingDay = formatPopupDateTime(lastWorkingRaw) || undefined;
   const reason =
     readString(record, "reason") ||
     readString(record, "remarks") ||

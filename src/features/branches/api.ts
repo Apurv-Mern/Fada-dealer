@@ -9,7 +9,11 @@ import {
   branches as mockBranches,
   mockGroupDealers,
 } from "@/features/branches/mocks/data";
-import { parseOutletImportCsv } from "@/features/branches/csv-template";
+import {
+  OutletImportMastersError,
+  parseOutletImportFile,
+  validateParsedOutletImportAgainstMasters,
+} from "@/features/branches/import-file";
 import { getOutletFunctions } from "@/features/masters/api";
 import type { MasterIdNameItem } from "@/features/masters/types";
 import type {
@@ -184,6 +188,10 @@ export function mapOutletToBranch(
       ? "Active"
       : "Inactive",
     code: readString(record, "code") || undefined,
+    outletCode:
+      readString(record, "outletCode") ||
+      readString(record, "publicCode") ||
+      undefined,
     manager: readString(record, "manager") || undefined,
     city: readString(record, "city") || undefined,
     state: readString(record, "state") || undefined,
@@ -394,6 +402,13 @@ export async function getOutletOptions(): Promise<OutletOption[]> {
   });
 }
 
+function mockOutletCodeFromId(id: string): string {
+  let hash = 0;
+  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  const n = (hash % 900000) + 100000;
+  return `OT${n}`;
+}
+
 function branchFromInput(
   id: string,
   input: OutletInput,
@@ -414,6 +429,7 @@ function branchFromInput(
     type: mapFunctionsToType(input.functions, lookup),
     status: input.isActive === false ? "Inactive" : "Active",
     code: input.code,
+    outletCode: existing?.outletCode ?? mockOutletCodeFromId(id),
     manager: input.manager,
     city: input.city,
     state: input.state,
@@ -588,13 +604,14 @@ function mockImportSkippedRows(
 }
 
 /**
- * Bulk CSV import. Parses CSV client-side, then POST JSON array to
- * `/dealers/outlets/import`. See `deploy/OUTLET_CSV_IMPORT_API.md`.
+ * Bulk import from CSV or XLSX. Parses client-side, validates against live
+ * masters, then POST JSON array to `/dealers/outlets/import`.
+ * See `deploy/OUTLET_CSV_IMPORT_API.md`.
  */
-export async function importOutletsCsv(
+export async function importOutletsFile(
   file: File,
 ): Promise<OutletImportResult> {
-  const { items, errors: parseErrors } = await parseOutletImportCsv(file);
+  const { items, errors: parseErrors } = await parseOutletImportFile(file);
 
   if (parseErrors.length > 0) {
     return buildOutletImportResult(items, [], parseErrors);
@@ -605,8 +622,19 @@ export async function importOutletsCsv(
       total: 0,
       created: 0,
       failed: 0,
-      errors: [{ row: 1, message: "CSV has no data rows" }],
+      errors: [{ row: 1, message: "Import file has no data rows" }],
     };
+  }
+
+  let masterErrors: OutletImportRowError[];
+  try {
+    masterErrors = await validateParsedOutletImportAgainstMasters(items);
+  } catch {
+    throw new OutletImportMastersError();
+  }
+
+  if (masterErrors.length > 0) {
+    return buildOutletImportResult(items, [], masterErrors);
   }
 
   if (isMockMode()) {
@@ -622,3 +650,8 @@ export async function importOutletsCsv(
   const skipped = mapImportSkippedRows(unwrapApiData(body) ?? body);
   return buildOutletImportResult(items, skipped);
 }
+
+/** @deprecated Use importOutletsFile — accepts CSV and XLSX. */
+export const importOutletsCsv = importOutletsFile;
+
+export { OutletImportMastersError } from "@/features/branches/import-file";
