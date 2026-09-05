@@ -204,6 +204,7 @@ export function mapDealerProfile(raw: unknown): DealerProfile {
     email: readString(record, "email"),
     phone: readString(record, "phone"),
     dealerCode: readString(record, "dealerCode"),
+    dealerId: readString(record, "dealerId"),
     status: readString(record, "status") || "pending",
     isActive: "isActive" in record ? readBool(record, "isActive") : true,
     totalOutlets: readNumber(record, "totalOutlets"),

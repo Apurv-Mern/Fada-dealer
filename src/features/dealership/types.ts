@@ -3,7 +3,10 @@ export type DealerProfile = {
   name: string;
   email: string;
   phone: string;
+  /** Legacy / registration code field from API (`dealerCode`). */
   dealerCode: string;
+  /** Business company code from API (`dealerId`, e.g. DL38758). */
+  dealerId: string;
   status: string;
   isActive: boolean;
   totalOutlets: number;
@@ -136,10 +139,10 @@ export function displayValue(value: unknown): string {
 
 /**
  * Company Code shown on Company Profile.
- * Product rule: API top-level `id` is the company code (not `dealerCode`).
+ * Product rule: API top-level `dealerId` (e.g. DL38758), not numeric `id`.
  */
-export function companyCode(profile: Pick<DealerProfile, "id">): string {
-  return displayValue(profile.id);
+export function companyCode(profile: Pick<DealerProfile, "dealerId">): string {
+  return displayValue(profile.dealerId);
 }
 
 /** Placeholder shown for unfilled read-only profile fields. */

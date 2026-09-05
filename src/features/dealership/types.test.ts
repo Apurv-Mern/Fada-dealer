@@ -17,6 +17,7 @@ function baseProfile(overrides: Partial<DealerProfile> = {}): DealerProfile {
     email: "dealer@example.com",
     phone: "9876543210",
     dealerCode: "DLR-001",
+    dealerId: "DL38758",
     status: "pending",
     isActive: true,
     totalOutlets: 0,
@@ -79,18 +80,24 @@ describe("displayProfileField", () => {
 });
 
 describe("companyCode", () => {
-  it("returns profile id as the company code", () => {
-    expect(companyCode(baseProfile({ id: "40" }))).toBe("40");
+  it("returns API dealerId as the company code", () => {
+    expect(companyCode(baseProfile({ dealerId: "DL38758" }))).toBe("DL38758");
   });
 
-  it("trims whitespace and ignores dealerCode", () => {
+  it("trims whitespace and ignores numeric id / dealerCode", () => {
     expect(
-      companyCode(baseProfile({ id: "  40  ", dealerCode: "vn2806" })),
-    ).toBe("40");
+      companyCode(
+        baseProfile({
+          id: "16",
+          dealerId: "  DL38758  ",
+          dealerCode: "98769875",
+        }),
+      ),
+    ).toBe("DL38758");
   });
 
-  it("returns empty when id is blank", () => {
-    expect(companyCode(baseProfile({ id: "" }))).toBe("");
+  it("returns empty when dealerId is blank", () => {
+    expect(companyCode(baseProfile({ dealerId: "" }))).toBe("");
   });
 });
 

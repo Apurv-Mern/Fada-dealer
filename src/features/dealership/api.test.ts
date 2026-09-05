@@ -160,15 +160,18 @@ describe("deleteBusinessDocument", () => {
 });
 
 describe("mapDealerProfile", () => {
-  it("maps top-level id as company id when dealerCode is absent", () => {
+  it("maps top-level dealerId as company code field", () => {
     const profile = mapDealerProfile({
-      id: 40,
-      name: "Alex motor showrrom",
-      email: "alx28@mailinator.com",
+      id: 16,
+      name: "Abhishek dev",
+      email: "devmail@gmail.com",
+      dealerCode: "98769875",
+      dealerId: "DL38758",
     });
 
-    expect(profile.id).toBe("40");
-    expect(profile.dealerCode).toBe("");
+    expect(profile.id).toBe("16");
+    expect(profile.dealerCode).toBe("98769875");
+    expect(profile.dealerId).toBe("DL38758");
   });
 
   it("maps live GET brands string onto brandsRepresented", () => {
